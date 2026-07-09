@@ -1,0 +1,30 @@
+databases:
+  - name: tan-starter-db
+    plan: free
+    databaseName: tan_starter
+    user: tan_starter
+
+services:
+  - type: web
+    name: tan-starter
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: bun install && bunx prisma generate && bun run build
+    preDeployCommand: bunx prisma db push --accept-data-loss
+    startCommand: bun run start
+    envVars:
+      # `runtime: node` is required — there is no `runtime: bun`. Setting
+      # BUN_VERSION makes Render's Node runtime use Bun for install/start.
+      - key: BUN_VERSION
+        value: 1.3.10
+      - key: NODE_VERSION
+        value: 22
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tan-starter-db
+          property: connectionString
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_URL
+        sync: false
