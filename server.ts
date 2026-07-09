@@ -6,6 +6,7 @@ import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { auth } from './server/auth'
 import { env } from './server/env'
+import { startTickLoop } from './server/game'
 import { formatError, log, requestLogger, startupBanner } from './server/logger'
 import { prisma } from './server/prisma'
 import { appRouter } from './server/router'
@@ -143,6 +144,8 @@ async function createServer() {
       databaseUrl: env.DATABASE_URL,
       routes: ['/', '/sign-in', '/sign-up', '/dashboard', '/healthz', '/api/trpc', '/api/auth'],
     })
+    // authoritative round resolution for both concurrent wars
+    startTickLoop()
   })
 }
 

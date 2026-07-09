@@ -22,9 +22,16 @@ model User {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @default(now()) @map("updated_at")
 
-  sessions Session[]
-  accounts Account[]
-  posts    Post[]
+  // set by better-auth's anonymous plugin (guest drop-in auth)
+  isAnonymous Boolean? @default(false) @map("is_anonymous")
+
+  sessions    Session[]
+  accounts    Account[]
+  posts       Post[]
+  gamePlayers GamePlayer[]
+  votes       Vote[]
+  rallies     Rally[]
+  stats       PlayerStat[]
 
   @@map("user")
 }
@@ -71,6 +78,109 @@ model Verification {
   updatedAt  DateTime? @default(now()) @map("updated_at")
 
   @@map("verification")
+}
+
+// ---- Social War Games ----
+
+model Game {
+  id            String   @id @default(uuid())
+  mode          String // 'blitz' | 'campaign'
+  seed          Int
+  mapRadius     Int      @map("map_radius")
+  roundNumber   Int      @default(0) @map("round_number")
+  roundSeconds  Int      @map("round_seconds")
+  roundEndsAt   DateTime @map("round_ends_at")
+  status        String   @default("active") // 'active' | 'finished'
+  winnerFaction Int?     @map("winner_faction")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  players GamePlayer[]
+  rounds  Round[]
+  votes   Vote[]
+  rallies Rally[]
+  stats   PlayerStat[]
+
+  @@index([status])
+  @@map("game")
+}
+
+model GamePlayer {
+  id     String @id @default(uuid())
+  gameId String @map("game_id")
+  game   Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  faction Int
+  // energy is reconciled lazily: effective = min(cap, voteEnergy + regen * (game.round - energyRound))
+  voteEnergy  Int      @default(5) @map("vote_energy")
+  energyRound Int      @default(0) @map("energy_round")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([gameId, userId])
+  @@map("game_player")
+}
+
+model Round {
+  id        String   @id @default(uuid())
+  gameId    String   @map("game_id")
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  number    Int
+  snapshot  Json
+  events    Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([gameId, number])
+  @@map("round")
+}
+
+model Vote {
+  id       String  @id @default(uuid())
+  gameId   String  @map("game_id")
+  game     Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  round    Int
+  playerId String  @map("player_id")
+  player   User    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  unitId   Int     @map("unit_id")
+  action   Json
+  weight   Int     @default(1)
+  rallyId  String? @map("rally_id")
+  rally    Rally?  @relation(fields: [rallyId], references: [id], onDelete: SetNull)
+
+  @@unique([gameId, round, playerId, unitId])
+  @@index([gameId, round])
+  @@map("vote")
+}
+
+model Rally {
+  id        String   @id @default(uuid())
+  shortCode String   @unique @map("short_code")
+  gameId    String   @map("game_id")
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  creatorId String   @map("creator_id")
+  creator   User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  slate     Json // { unitId, action }[]
+  applies   Int      @default(0)
+  round     Int // round it was composed for (display only; slates stay valid while units live)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  votes Vote[]
+
+  @@map("rally")
+}
+
+model PlayerStat {
+  id       String @id @default(uuid())
+  playerId String @map("player_id")
+  player   User   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  gameId   String @map("game_id")
+  game     Game   @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  stat     String
+  total    Int    @default(0)
+
+  @@unique([playerId, gameId, stat])
+  @@index([gameId, stat])
+  @@map("player_stat")
 }
 
 model Post {

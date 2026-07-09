@@ -5,9 +5,21 @@ owns a unit — you vote on each piece's action, rounds resolve on a timer, winn
 actions execute. Mobile-first. Open source. Full game spec: **`design.md`**.
 Visual language: **`ui.md`**. Art-direction proof (open in browser): **`docs/art-proof.html`**.
 
-## Status (2026-07-09) — shared sim done (step 1); server next (step 2)
+## Status (2026-07-09) — steps 1–2 done (sim + server); renderer next (step 3)
 
 Done:
+- **Build step 2 complete**: server layer.
+  - Prisma models `Game/GamePlayer/Round/Vote/Rally/PlayerStat` (+ `User.isAnonymous`
+    for better-auth's `anonymous` plugin — guests drop in with zero friction).
+  - `server/game.ts`: mode configs (blitz 60s/1440 rounds, campaign 900s/1344),
+    terrain cache, `ensureActiveGames`, `castVotesForPlayer` (lazy energy regen
+    +5/cap 25; re-voting a unit is free; rallies cast what's affordable),
+    `resolveDueGames` 1s tick loop (started in `server.ts` on listen).
+  - tRPC `game.*`: join (least-populated faction), state (snapshot + events + me),
+    tally, castVotes, rally.create/get/**cast** (NOT `apply` — tRPC reserves
+    Function.prototype words as procedure names), leaderboard, warReport.
+  - Verified over HTTP end-to-end: anonymous sign-in → join → castVotes → tally
+    → rally roundtrip → tick advanced rounds live → PlayerStat ledger rows.
 - **Build step 1 complete**: `shared/` deterministic sim — `hex.ts`, `noise.ts`
   (verbatim fabletest copy), `types.ts` (+ dep-free base64), `units.ts` (stats,
   passability, pathfinding, initial snapshot), `mapgen.ts`, `resolve.ts`.
