@@ -5,9 +5,20 @@ owns a unit — you vote on each piece's action, rounds resolve on a timer, winn
 actions execute. Mobile-first. Open source. Full game spec: **`design.md`**.
 Visual language: **`ui.md`**. Art-direction proof (open in browser): **`docs/art-proof.html`**.
 
-## Status (2026-07-09) — scaffolded, docs done, game not yet built
+## Status (2026-07-09) — shared sim done (step 1); server next (step 2)
 
 Done:
+- **Build step 1 complete**: `shared/` deterministic sim — `hex.ts`, `noise.ts`
+  (verbatim fabletest copy), `types.ts` (+ dep-free base64), `units.ts` (stats,
+  passability, pathfinding, initial snapshot), `mapgen.ts`, `resolve.ts`.
+  22 bun tests in `shared/sim.test.ts` (`bun test shared`): symmetry, gate,
+  determinism, combat/bounce/dodge scenarios, 40-round fuzz. All 20 tested seeds
+  pass the ≥85% gate on attempt 1 (worst reach 0.997).
+  - Symmetry technique: noise is **averaged over the 3 rotations** (continuous,
+    no wedge-seam cliffs — better than canonical-rep sampling); samples are
+    **sorted before summing** (float addition isn't order-independent) and
+    terrace/forest cutoffs are quantile *values*, so orbits never diverge.
+  - `rot120(0,0)` normalizes `-0` → `0` (deep-equality trap).
 - Scaffolded from **dested/sal-starter** (Bun + Express 5 + Vite SSR + React Router 7
   + tRPC v11 + Prisma 7/Postgres + better-auth + Tailwind 4/shadcn + Playwright).
   Starter architecture reference: `docs/starter-cliffnotes.md` (read it before
