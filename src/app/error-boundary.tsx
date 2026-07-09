@@ -23,7 +23,7 @@ export function RouteErrorBoundary() {
       <header className="border-b">
         <nav className="mx-auto flex max-w-5xl items-center px-6 py-4">
           <Link to="/" className="font-semibold">
-            tan-starter
+            Social War Games
           </Link>
         </nav>
       </header>
