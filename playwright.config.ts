@@ -7,7 +7,7 @@ import { defineConfig, devices } from '@playwright/test'
 const PORT = 3100
 const baseURL = `http://localhost:${PORT}`
 const DATABASE_URL =
-  process.env.E2E_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/tan_starter_test'
+  process.env.E2E_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/social_war_games_test'
 
 export default defineConfig({
   testDir: './e2e',

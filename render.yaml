@@ -1,12 +1,12 @@
 databases:
-  - name: tan-starter-db
+  - name: social-war-games-db
     plan: free
-    databaseName: tan_starter
-    user: tan_starter
+    databaseName: social_war_games
+    user: social_war_games
 
 services:
   - type: web
-    name: tan-starter
+    name: social-war-games
     runtime: node
     plan: free
     region: oregon
@@ -22,7 +22,7 @@ services:
         value: 22
       - key: DATABASE_URL
         fromDatabase:
-          name: tan-starter-db
+          name: social-war-games-db
           property: connectionString
       - key: BETTER_AUTH_SECRET
         generateValue: true

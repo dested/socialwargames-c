@@ -4,7 +4,7 @@ import { Client } from 'pg'
 // and screenshots are byte-for-byte reproducible. Runs once per `playwright test`.
 export default async function globalSetup() {
   const connectionString =
-    process.env.E2E_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/tan_starter_test'
+    process.env.E2E_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/social_war_games_test'
   const client = new Client({ connectionString })
   await client.connect()
   await client.query(
