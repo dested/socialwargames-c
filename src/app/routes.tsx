@@ -8,6 +8,7 @@ import { DashboardPage } from './dashboard'
 import { RouteErrorBoundary } from './error-boundary'
 import { HomePage } from './home'
 import { Layout } from './layout'
+import { PlayPage } from './play'
 import { SignInPage } from './sign-in'
 import { SignUpPage } from './sign-up'
 
@@ -68,6 +69,8 @@ export const routes: RouteObject[] = [
       { path: 'sign-in', Component: SignInPage, loader: redirectIfSignedIn },
       { path: 'sign-up', Component: SignUpPage, loader: redirectIfSignedIn },
       { path: 'dashboard', Component: DashboardPage, loader: dashboardLoader },
+      // full-viewport war table — renders its own chrome, no nav layout
+      { path: 'play/:mode', Component: PlayPage },
     ],
   },
 ]
