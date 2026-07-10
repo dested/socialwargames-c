@@ -1,19 +1,20 @@
-// /play/:mode — the war table. Full-viewport canvas (100dvh), one-finger pan,
-// pinch/double-tap zoom, tap to select → bottom sheet → vote. Round flips
-// animate (movement lerps, attack flashes); prefers-reduced-motion snaps.
+// /play/:mode — the war table. Full-viewport 3D diorama (100dvh): one-finger
+// pan, pinch zoom + twist rotate, right-drag orbit, tap to select → bottom
+// sheet → vote. Round flips animate (movement lerps, attack flashes);
+// prefers-reduced-motion snaps.
 
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { DIRS, hexDist, idx, inBoard } from '../../shared/hex'
+import { DIRS, hexDist, inBoard } from '../../shared/hex'
 import { generateMap } from '../../shared/mapgen'
 import type { Action, Cell, SimEvent, Snapshot, Unit } from '../../shared/types'
 import { base64ToBytes } from '../../shared/types'
 import { UNIT_STATS, canStand, canTraverse, findPath } from '../../shared/units'
 import { authClient } from '~/lib/auth-client'
 import { useTRPC } from '~/lib/trpc'
-import { WarRenderer, type RenderView } from '~/game/renderer'
-import { FACTIONS, FACTION_BASE, FACTION_NAMES } from '~/game/palette'
+import { WarScene, type SceneView } from '~/scene/scene'
+import { FACTIONS, FACTION_BASE, FACTION_NAMES, UI } from '~/scene/palette'
 import { UnitSheet } from './unit-sheet'
 
 type Mode = 'blitz' | 'campaign'
@@ -25,7 +26,7 @@ export function PlayPage() {
   const { mode = 'blitz' } = useParams()
   const trpc = useTRPC()
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const rendererRef = useRef<WarRenderer | null>(null)
+  const sceneRef = useRef<WarScene | null>(null)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [targetKind, setTargetKind] = useState<TargetKind | null>(null)
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'sharing'>('idle')
@@ -187,84 +188,58 @@ export function PlayPage() {
   // dev/e2e handle: lets tests find exact screen coords of cells
   if (import.meta.env.DEV && typeof window !== 'undefined') {
     ;(window as unknown as Record<string, unknown>).__war = {
-      renderer: rendererRef.current,
+      renderer: sceneRef.current,
       latest,
       myFaction,
     }
   }
 
-  // center the camera on a cell's TOP FACE (the camera lives on the z=0 plane,
-  // so tall cells need a back-shift of (plane·LEVEL − HALF_H) / (2·HALF_H))
-  const centerOn = (q: number, r: number) => {
-    const renderer = rendererRef.current
-    if (!renderer || !terrain) return
-    const plane = Math.max(terrain.elevation[idx(q, r, terrain.R)], 1) + 1
-    const shift = (plane * 110 - 55) / 110
-    renderer.cam.x = q - shift
-    renderer.cam.y = r - shift
-  }
-
-  // once the join lands, center on YOUR capital (unless deep-linked)
-  const centeredRef = useRef(false)
+  // scene lifecycle: one WarScene per (game, terrain)
   useEffect(() => {
-    if (!terrain || !rendererRef.current || state?.me == null || centeredRef.current) return
-    if (new URLSearchParams(window.location.search).get('q')) return
-    centeredRef.current = true
-    const cap = terrain.capitals[state.me.faction as 0 | 1 | 2]
-    centerOn(cap.q, cap.r)
-  }, [terrain, state?.me?.faction])
-
-  // renderer lifecycle
-  useEffect(() => {
-    if (!terrain) return
-    const renderer = new WarRenderer(terrain)
-    rendererRef.current = renderer
-    const cap = terrain.capitals[(state?.me?.faction ?? 0) as 0 | 1 | 2]
-    renderer.cam.x = cap.q - 2.5
-    renderer.cam.y = cap.r - 2.5
-    renderer.cam.zoom = 0.3
+    const canvas = canvasRef.current
+    if (!terrain || !canvas) return
+    const scene = new WarScene(canvas, terrain)
+    sceneRef.current = scene
+    scene.focusFaction(((state?.me?.faction ?? 0) as 0 | 1 | 2))
     const sp = new URLSearchParams(window.location.search)
-    if (sp.get('q')) renderer.cam.x = Number(sp.get('q'))
-    if (sp.get('r')) renderer.cam.y = Number(sp.get('r'))
-    if (sp.get('z')) renderer.cam.zoom = Number(sp.get('z'))
+    if (sp.get('q') && sp.get('r')) scene.centerOn(Number(sp.get('q')), Number(sp.get('r')))
+    if (sp.get('z')) scene.cam.dist = Number(sp.get('z'))
+    scene.onTap = (cell) => tapRef.current?.(cell)
     return () => {
-      if (rendererRef.current === renderer) rendererRef.current = null
+      if (sceneRef.current === scene) sceneRef.current = null
+      scene.dispose()
     }
   }, [terrain])
 
-  // ---- draw loop + input ----
+  // once the join lands, swing the camera behind YOUR capital (unless deep-linked)
+  const centeredRef = useRef(false)
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')!
+    if (!sceneRef.current || state?.me == null || centeredRef.current) return
+    if (new URLSearchParams(window.location.search).get('q')) return
+    centeredRef.current = true
+    sceneRef.current.focusFaction(state.me.faction as 0 | 1 | 2)
+  }, [terrain, state?.me?.faction])
+
+  // ---- draw loop ----
+  useEffect(() => {
     let raf = 0
     let disposed = false
 
-    const dpr = () => Math.min(2.5, window.devicePixelRatio || 1)
-    const resize = () => {
-      const rect = canvas.getBoundingClientRect()
-      canvas.width = Math.round(rect.width * dpr())
-      canvas.height = Math.round(rect.height * dpr())
-    }
-    resize()
+    const resize = () => sceneRef.current?.resize()
     window.addEventListener('resize', resize)
 
     const ease = (t: number) => t * t * (3 - 2 * t)
 
     const frame = () => {
       if (disposed) return
-      const renderer = rendererRef.current
-      if (renderer && latest.snapshot && latest.territory) {
-        const d = dpr()
-        ctx.save()
-        ctx.scale(d, d)
-        const w = canvas.width / d
-        const h = canvas.height / d
-
-        const view: RenderView = {
+      const scene = sceneRef.current
+      if (scene && latest.snapshot && latest.territory) {
+        const view: SceneView = {
           units: latest.snapshot.units,
           territory: latest.territory,
-          selected: latest.selected ? { q: latest.selected.q, r: latest.selected.r } : null,
+          selected: latest.selected
+            ? { q: latest.selected.q, r: latest.selected.r, faction: latest.selected.faction }
+            : null,
           targets: latest.targets,
         }
 
@@ -297,27 +272,27 @@ export function PlayPage() {
         }
 
         // board-wide vote overlay: every unit's LEADING voted action, at a
-        // glance — faction-colored arrows for move/attack, chips for the rest.
+        // glance — faction-glow arcs for move/attack, chips for the rest.
         // Hidden during the round flip so the animation reads clean.
         if (!flipRef.current) {
-          const arrows: NonNullable<RenderView['arrows']> = []
-          const badges: NonNullable<RenderView['badges']> = []
+          const arrows: NonNullable<SceneView['arrows']> = []
+          const badges: NonNullable<SceneView['badges']> = []
           const byId = new Map(view.units.map((u) => [u.id, u]))
           for (const t of latest.tally) {
             const u = byId.get(t.unitId)
             const lead = t.actions[0]?.action
             if (!u || !lead) continue
-            const color = FACTIONS[u.faction].line
+            const color = FACTIONS[u.faction].glow
             const bold = latest.selected?.id === u.id
             if (lead.kind === 'move' || lead.kind === 'attack') {
               arrows.push({ from: { q: u.q, r: u.r }, to: { q: lead.q, r: lead.r }, kind: lead.kind, color, bold })
             } else if (lead.kind === 'mine') {
-              badges.push({ q: u.q, r: u.r, label: '⛏ mine', color })
+              badges.push({ q: u.q, r: u.r, label: '⛏ mine', color, lift: 0.75 })
             } else if (lead.kind === 'build') {
-              badges.push({ q: lead.q, r: lead.r, label: '⚒ build', color, lift: 60 })
+              badges.push({ q: lead.q, r: lead.r, label: '⚒ build', color, lift: 0.35 })
             } else if (lead.kind === 'produce') {
               const tall = u.type === 'capital' || u.type === 'factory'
-              badges.push({ q: u.q, r: u.r, label: `+ ${lead.unit}`, color, lift: tall ? 290 : 170 })
+              badges.push({ q: u.q, r: u.r, label: `+ ${lead.unit}`, color, lift: tall ? 1.75 : 0.9 })
             }
           }
           // your own pending vote on the selected piece, even if it's not leading
@@ -330,93 +305,16 @@ export function PlayPage() {
           view.badges = badges
         }
 
-        renderer.draw(ctx, view, w, h)
-        ctx.restore()
+        scene.render(view, performance.now())
       }
       raf = requestAnimationFrame(frame)
     }
     raf = requestAnimationFrame(frame)
 
-    // ---- gestures ----
-    const pointers = new Map<number, { x: number; y: number }>()
-    let pinchDist = 0
-    let downPos: { x: number; y: number } | null = null
-    let moved = false
-    let lastTap = 0
-
-    const onDown = (e: PointerEvent) => {
-      canvas.setPointerCapture(e.pointerId)
-      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-      if (pointers.size === 2) {
-        const [a, b] = [...pointers.values()]
-        pinchDist = Math.hypot(a.x - b.x, a.y - b.y)
-      }
-      downPos = { x: e.clientX, y: e.clientY }
-      moved = false
-    }
-    const onMove = (e: PointerEvent) => {
-      const prev = pointers.get(e.pointerId)
-      if (!prev) return
-      const renderer = rendererRef.current
-      if (!renderer) return
-      const cur = { x: e.clientX, y: e.clientY }
-      if (pointers.size === 1) {
-        const dx = cur.x - prev.x
-        const dy = cur.y - prev.y
-        if (Math.abs(cur.x - (downPos?.x ?? 0)) + Math.abs(cur.y - (downPos?.y ?? 0)) > 8) moved = true
-        const z = renderer.cam.zoom
-        const du = dx / z
-        const dv = dy / z
-        renderer.cam.x -= (du / 116 + dv / 55) / 2
-        renderer.cam.y -= (dv / 55 - du / 116) / 2
-      }
-      pointers.set(e.pointerId, cur)
-      if (pointers.size === 2) {
-        const [a, b] = [...pointers.values()]
-        const d2 = Math.hypot(a.x - b.x, a.y - b.y)
-        if (pinchDist > 0) renderer.cam.zoom = clampZoom(renderer.cam.zoom * (d2 / pinchDist))
-        pinchDist = d2
-        moved = true
-      }
-    }
-    const onUp = (e: PointerEvent) => {
-      pointers.delete(e.pointerId)
-      pinchDist = 0
-      const renderer = rendererRef.current
-      if (!renderer || moved || pointers.size > 0) return
-      const rect = canvas.getBoundingClientRect()
-      const px = e.clientX - rect.left
-      const py = e.clientY - rect.top
-      const nowMs = performance.now()
-      if (nowMs - lastTap < 300) {
-        renderer.cam.zoom = clampZoom(renderer.cam.zoom * 1.6)
-        lastTap = 0
-        return
-      }
-      lastTap = nowMs
-      const cell = renderer.screenToCell(px, py, rect.width, rect.height)
-      tapRef.current?.(cell)
-    }
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const renderer = rendererRef.current
-      if (renderer) renderer.cam.zoom = clampZoom(renderer.cam.zoom * (e.deltaY < 0 ? 1.12 : 0.9))
-    }
-
-    canvas.addEventListener('pointerdown', onDown)
-    canvas.addEventListener('pointermove', onMove)
-    canvas.addEventListener('pointerup', onUp)
-    canvas.addEventListener('pointercancel', onUp)
-    canvas.addEventListener('wheel', onWheel, { passive: false })
     return () => {
       disposed = true
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', resize)
-      canvas.removeEventListener('pointerdown', onDown)
-      canvas.removeEventListener('pointermove', onMove)
-      canvas.removeEventListener('pointerup', onUp)
-      canvas.removeEventListener('pointercancel', onUp)
-      canvas.removeEventListener('wheel', onWheel)
     }
   }, [])
 
@@ -448,74 +346,94 @@ export function PlayPage() {
   }
 
   const secondsLeft = state ? Math.max(0, Math.round((Date.parse(state.game.roundEndsAt) - now) / 1000)) : 0
+  const roundFrac = state ? Math.min(1, Math.max(0, secondsLeft / state.game.roundSeconds)) : 0
 
   return (
-    <div className="fixed inset-0 flex flex-col" style={{ height: '100dvh', background: '#f2e7cb' }}>
-      {/* slim top HUD */}
+    <div className="fixed inset-0 flex flex-col" style={{ height: '100dvh', background: '#8fb6c6' }}>
+      <canvas ref={canvasRef} className="h-full w-full touch-none" style={{ display: 'block' }} />
+
+      {/* floating glass HUD */}
       <div
-        className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-3 text-sm"
-        style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          background: 'rgba(253,248,234,0.92)',
-          borderBottom: '2px solid #d9cca9',
-          color: '#443a26',
-          minHeight: 44,
-        }}
+        className="absolute inset-x-2 top-0 z-10"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }}
       >
-        <div className="flex items-center gap-2 font-semibold" style={{ fontVariantNumeric: 'tabular-nums' }}>
-          {state?.snapshot.scores.map((s, f) => (
-            <span key={f} className="flex items-center gap-1">
-              <span
-                className="inline-block h-3 w-3 rounded-full"
-                style={{ background: FACTION_BASE[f], outline: f === myFaction ? '2px solid #443a26' : 'none' }}
-              />
-              {s}
-            </span>
-          ))}
-        </div>
-        <div className="font-bold" style={{ fontVariantNumeric: 'tabular-nums' }}>
-          <span className="text-xs font-semibold" style={{ color: '#71634a' }}>
-            round {state?.game.roundNumber ?? '—'} ·{' '}
-          </span>
-          {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
-        </div>
         <div
-          className="text-xs font-semibold"
-          style={{ color: '#71634a', fontVariantNumeric: 'tabular-nums' }}
-          title="Vote energy — each new order costs 1, +5 back every round"
+          className="flex items-center justify-between rounded-2xl px-3 text-sm"
+          style={{
+            background: UI.panel,
+            border: `1px solid ${UI.panelBorder}`,
+            color: UI.ink,
+            minHeight: 46,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 6px 24px rgba(0,0,0,0.25)',
+          }}
         >
-          {state?.me ? `⚡ ${state.me.energy}/25 votes` : 'joining…'}
+          <div className="flex items-center gap-2.5 font-semibold" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {state?.snapshot.scores.map((s, f) => (
+              <span key={f} className="flex items-center gap-1.5">
+                <span
+                  className="inline-block h-3 w-3 rounded-full"
+                  style={{
+                    background: FACTIONS[f].glow,
+                    boxShadow: f === myFaction ? `0 0 0 2px ${UI.ink}` : `0 0 6px ${FACTIONS[f].glow}`,
+                  }}
+                />
+                {s}
+              </span>
+            ))}
+          </div>
+          <div className="font-bold" style={{ fontVariantNumeric: 'tabular-nums', color: UI.accent }}>
+            <span className="text-xs font-semibold" style={{ color: UI.inkSoft }}>
+              round {state?.game.roundNumber ?? '—'} ·{' '}
+            </span>
+            {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+          </div>
+          <div
+            className="text-xs font-semibold"
+            style={{ color: UI.inkSoft, fontVariantNumeric: 'tabular-nums' }}
+            title="Vote energy — each new order costs 1, +5 back every round"
+          >
+            {state?.me ? `⚡ ${state.me.energy}/25 votes` : 'joining…'}
+          </div>
+        </div>
+        {/* round progress */}
+        <div className="mx-3 h-0.5 overflow-hidden rounded-b" style={{ background: 'rgba(255,255,255,0.08)' }}>
+          <div
+            className="h-full"
+            style={{ width: `${roundFrac * 100}%`, background: UI.accent, opacity: 0.8, transition: 'width 0.5s linear' }}
+          />
         </div>
       </div>
 
       {/* first-visit hint — top banner so it never blocks board taps */}
       {!hintDismissed && state?.me && myFaction >= 0 && (
         <div
-          className="absolute inset-x-3 z-10 rounded-xl px-3 py-2 text-sm shadow-sm"
+          className="absolute inset-x-3 z-10 mx-auto rounded-2xl px-4 py-3 text-sm"
           style={{
-            top: 'calc(env(safe-area-inset-top) + 52px)',
-            background: '#fdf8ea',
-            border: '2px solid #d9cca9',
-            color: '#443a26',
+            top: 'calc(env(safe-area-inset-top) + 64px)',
+            maxWidth: 560,
+            background: UI.panel,
+            border: `1px solid ${UI.panelBorder}`,
+            color: UI.ink,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 6px 24px rgba(0,0,0,0.3)',
           }}
         >
-          <span className="font-bold" style={{ color: FACTIONS[myFaction].line }}>
+          <span className="font-bold" style={{ color: FACTIONS[myFaction].glow }}>
             You command the {FACTION_NAMES[myFaction]}.
           </span>{' '}
           Tap one of your pieces and vote its next order — when the timer hits zero, the most-voted
-          order per piece executes. Arrows and chips show what every side is voting right now. ⚡ is
-          your vote energy: each new order costs 1, and you get 5 back every round.
+          order per piece executes. Glowing arcs and chips show what every side is voting right now.
+          ⚡ is your vote energy: each new order costs 1, and you get 5 back every round.
           <button
             onClick={dismissHint}
-            className="mt-2 block w-full rounded-lg py-2 font-bold"
-            style={{ border: '2px solid #cf9c3c', color: '#6b5116', minHeight: 40 }}
+            className="mt-2.5 block w-full rounded-xl py-2 font-bold"
+            style={{ border: `1px solid ${UI.accentLine}`, color: UI.accent, minHeight: 40 }}
           >
             Got it
           </button>
         </div>
       )}
-
-      <canvas ref={canvasRef} className="h-full w-full touch-none" style={{ display: 'block' }} />
 
       {/* target-picking prompt bar (sheet collapses while aiming) */}
       {targetKind && selected && (
@@ -523,18 +441,19 @@ export function PlayPage() {
           className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-between px-4 py-3 text-sm font-bold"
           style={{
             paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)',
-            background: '#fdf8ea',
-            borderTop: '2px solid #cf9c3c',
-            color: '#443a26',
+            background: UI.panel,
+            borderTop: `1px solid ${UI.accentLine}`,
+            color: UI.ink,
+            backdropFilter: 'blur(10px)',
           }}
         >
           <span>
-            Tap a highlighted hex to {targetKind} {targetKind === 'build' ? 'the factory' : ''}
+            Tap a glowing hex to {targetKind} {targetKind === 'build' ? 'the factory' : ''}
           </span>
           <button
             onClick={() => setTargetKind(null)}
             className="rounded-xl px-4 py-2"
-            style={{ border: '2px solid #d9cca9', minHeight: 44 }}
+            style={{ border: `1px solid ${UI.panelBorder}`, minHeight: 44 }}
           >
             Cancel
           </button>
@@ -560,8 +479,4 @@ export function PlayPage() {
       )}
     </div>
   )
-}
-
-function clampZoom(z: number): number {
-  return Math.min(1.2, Math.max(0.08, z))
 }

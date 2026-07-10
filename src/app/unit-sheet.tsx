@@ -1,13 +1,13 @@
-// Bottom sheet for unit interaction (ui.md "Mobile UX law": bottom sheet,
-// never floating tooltips). Portrait + HP pips + live tally bars + big legal
-// action buttons; Move/Attack/Build collapse into target-picking on the canvas.
+// Bottom sheet for unit interaction (mobile UX law: bottom sheet, never
+// floating tooltips). 3D-rendered portrait + HP pips + live tally bars + big
+// legal action buttons; Move/Attack/Build collapse into target-picking on the
+// board. Dark glass over the bright diorama.
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import type { Action, Snapshot, Terrain, Unit } from '../../shared/types'
 import { UNIT_STATS, produceCost } from '../../shared/units'
 import { idx } from '../../shared/hex'
-import { FACTIONS, FACTION_BASE, FACTION_NAMES, INK, INK_SOFT, LINE, PANEL, emberize } from '~/game/palette'
-import { PIECE_DRAWERS } from '~/game/pieces'
+import { FACTIONS, FACTION_NAMES, UI } from '~/scene/palette'
 
 export interface TallyEntry {
   action: Action
@@ -59,39 +59,29 @@ export function actionLabel(unit: Unit, action: Action): string {
 }
 
 function Portrait({ unit }: { unit: Unit }) {
-  const ref = useRef<HTMLCanvasElement>(null)
+  const [src, setSrc] = useState<string | null>(null)
   useEffect(() => {
-    const canvas = ref.current
-    if (!canvas) return
-    const d = Math.min(2, window.devicePixelRatio || 1)
-    canvas.width = 84 * d
-    canvas.height = 84 * d
-    const ctx = canvas.getContext('2d')!
-    ctx.scale(d, d)
-    ctx.clearRect(0, 0, 84, 84)
-    const F = FACTIONS[unit.faction]
-    if (unit.type === 'capital' || unit.type === 'factory') {
-      const img = new Image()
-      img.src = unit.type === 'capital'
-        ? `/tiles/town/castle_tower${['Green', 'Purple', 'Green'][unit.faction]}_N.png`
-        : `/tiles/town/building_door_N.png`
-      img.onload = () => {
-        const src: CanvasImageSource = unit.faction === 2 ? emberize(img) : img
-        // crop the interesting upper 256×256 of the 256×352 tile
-        ctx.clearRect(0, 0, 84, 84)
-        ctx.drawImage(src, 0, 0, 256, 300, 4, 2, 76, 89)
-      }
-    } else {
-      PIECE_DRAWERS[unit.type](ctx, 42, 76, 62, F)
+    let alive = true
+    // scene code is heavyweight — load it lazily so the sheet opens instantly
+    void import('~/scene/portrait').then(({ portraitOf }) => {
+      if (alive) setSrc(portraitOf(unit.type, unit.faction))
+    })
+    return () => {
+      alive = false
     }
-  }, [unit.id, unit.type, unit.faction])
-  return <canvas ref={ref} style={{ width: 84, height: 84 }} aria-hidden />
+  }, [unit.type, unit.faction])
+  return src ? (
+    <img src={src} width={84} height={84} style={{ width: 84, height: 84 }} alt="" aria-hidden />
+  ) : (
+    <div style={{ width: 84, height: 84 }} />
+  )
 }
 
 function HpPips({ unit }: { unit: Unit }) {
   const max = UNIT_STATS[unit.type].hp
   const pipCount = Math.min(12, max)
   const filled = Math.round((unit.hp / max) * pipCount)
+  const glow = FACTIONS[unit.faction].glow
   return (
     <div className="flex items-center gap-1" title={`${unit.hp}/${max} HP`}>
       {Array.from({ length: pipCount }, (_, i) => (
@@ -99,12 +89,12 @@ function HpPips({ unit }: { unit: Unit }) {
           key={i}
           className="inline-block h-2.5 w-2.5 rounded-full"
           style={{
-            background: i < filled ? FACTION_BASE[unit.faction] : 'transparent',
-            border: `2px solid ${i < filled ? FACTIONS[unit.faction].line : LINE}`,
+            background: i < filled ? glow : 'transparent',
+            border: `2px solid ${i < filled ? glow : UI.inkFaint}`,
           }}
         />
       ))}
-      <span className="ml-1 text-xs font-semibold" style={{ color: INK_SOFT, fontVariantNumeric: 'tabular-nums' }}>
+      <span className="ml-1 text-xs font-semibold" style={{ color: UI.inkSoft, fontVariantNumeric: 'tabular-nums' }}>
         {unit.hp}/{max}
       </span>
     </div>
@@ -114,9 +104,9 @@ function HpPips({ unit }: { unit: Unit }) {
 const BTN: React.CSSProperties = {
   minHeight: 46,
   borderRadius: 12,
-  border: `2px solid ${LINE}`,
-  background: '#fff',
-  color: INK,
+  border: `1px solid ${UI.panelBorder}`,
+  background: 'rgba(255,255,255,0.06)',
+  color: UI.ink,
   fontWeight: 700,
   fontSize: 14,
   padding: '0 14px',
@@ -130,28 +120,31 @@ export function UnitSheet(props: UnitSheetProps) {
   const isBuilding = unit.type === 'factory' || unit.type === 'capital'
   const top3 = tally.slice(0, 3)
   const maxWeight = top3[0]?.weight ?? 0
+  const glow = FACTIONS[unit.faction].glow
 
   return (
     <div
       className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-3 px-4 pt-3"
       style={{
         paddingBottom: 'calc(env(safe-area-inset-bottom) + 14px)',
-        background: PANEL,
-        borderTop: `2px solid ${LINE}`,
+        background: UI.panel,
+        borderTop: `1px solid ${UI.panelBorder}`,
         borderRadius: '18px 18px 0 0',
-        boxShadow: '0 -8px 30px rgba(68,58,38,0.18)',
+        boxShadow: '0 -8px 30px rgba(0,0,0,0.45)',
+        backdropFilter: 'blur(14px)',
         maxHeight: '46dvh',
         overflowY: 'auto',
+        color: UI.ink,
       }}
     >
       {/* grab handle + close */}
       <div className="flex items-center justify-center pt-1">
-        <div style={{ width: 44, height: 5, borderRadius: 3, background: LINE }} />
+        <div style={{ width: 44, height: 5, borderRadius: 3, background: UI.inkFaint }} />
         <button
           onClick={props.onClose}
           aria-label="Close"
           className="absolute right-2 top-1 px-3 py-2 text-lg font-bold"
-          style={{ color: INK_SOFT, minWidth: 44, minHeight: 44 }}
+          style={{ color: UI.inkSoft, minWidth: 44, minHeight: 44 }}
         >
           ✕
         </button>
@@ -161,17 +154,17 @@ export function UnitSheet(props: UnitSheetProps) {
       <div className="flex items-center gap-3">
         <div
           className="shrink-0 overflow-hidden rounded-xl"
-          style={{ border: `2px solid ${LINE}`, background: '#f6efdc', width: 88, height: 88 }}
+          style={{ border: `1px solid ${UI.panelBorder}`, background: 'rgba(255,255,255,0.05)', width: 88, height: 88 }}
         >
           <Portrait unit={unit} />
         </div>
         <div className="flex min-w-0 flex-col gap-1">
-          <div className="truncate text-base font-bold" style={{ color: INK, fontFamily: "Rockwell, 'Roboto Slab', serif" }}>
+          <div className="truncate text-base font-bold" style={{ color: UI.ink }}>
             {FACTION_NAMES[unit.faction].split(' ')[0]} {unit.type[0].toUpperCase() + unit.type.slice(1)} №{unit.id}
           </div>
           <span
             className="w-fit rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide"
-            style={{ background: FACTION_BASE[unit.faction], color: '#fff' }}
+            style={{ background: 'rgba(255,255,255,0.06)', color: glow, border: `1px solid ${glow}` }}
           >
             {FACTION_NAMES[unit.faction]}
           </span>
@@ -183,13 +176,14 @@ export function UnitSheet(props: UnitSheetProps) {
       {top3.length > 0 && (
         <div className="flex flex-col gap-1.5">
           {top3.map((t, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs font-semibold" style={{ color: INK }}>
-              <div className="h-4 flex-1 overflow-hidden rounded" style={{ background: '#efe6cc' }}>
+            <div key={i} className="flex items-center gap-2 text-xs font-semibold" style={{ color: UI.ink }}>
+              <div className="h-4 flex-1 overflow-hidden rounded" style={{ background: 'rgba(255,255,255,0.07)' }}>
                 <div
                   className="h-full rounded"
                   style={{
                     width: `${Math.max(8, (t.weight / maxWeight) * 100)}%`,
-                    background: i === 0 ? FACTION_BASE[unit.faction] : LINE,
+                    background: i === 0 ? glow : UI.inkFaint,
+                    boxShadow: i === 0 ? `0 0 8px ${glow}` : 'none',
                   }}
                 />
               </div>
@@ -230,7 +224,7 @@ export function UnitSheet(props: UnitSheetProps) {
               (['worker', 'scout', 'tank'] as const).map((t) => {
                 const cost = produceCost(t, unit.type as 'factory' | 'capital')
                 return (
-                  <button key={t} style={BTN} disabled={pool < cost} onClick={() => props.onAction({ kind: 'produce', unit: t })}>
+                  <button key={t} style={{ ...BTN, opacity: pool < cost ? 0.45 : 1 }} disabled={pool < cost} onClick={() => props.onAction({ kind: 'produce', unit: t })}>
                     {t[0].toUpperCase() + t.slice(1)} ({cost})
                   </button>
                 )
@@ -241,12 +235,12 @@ export function UnitSheet(props: UnitSheetProps) {
           </div>
 
           {/* vote status + rally */}
-          <div className="flex items-center justify-between gap-2 text-xs font-semibold" style={{ color: INK_SOFT }}>
+          <div className="flex items-center justify-between gap-2 text-xs font-semibold" style={{ color: UI.inkSoft }}>
             <span style={{ fontVariantNumeric: 'tabular-nums' }}>
               {myVote ? `✓ your vote: ${actionLabel(unit, myVote)} · ` : ''}⚡ {energy}/25
             </span>
             <button
-              style={{ ...BTN, minHeight: 40, borderColor: '#cf9c3c', color: '#6b5116' }}
+              style={{ ...BTN, minHeight: 40, borderColor: UI.accentLine, color: UI.accent }}
               onClick={props.onShareRally}
               disabled={props.shareState === 'sharing'}
             >
@@ -255,7 +249,7 @@ export function UnitSheet(props: UnitSheetProps) {
           </div>
         </>
       ) : (
-        <div className="pb-1 text-xs font-semibold" style={{ color: INK_SOFT }}>
+        <div className="pb-1 text-xs font-semibold" style={{ color: UI.inkSoft }}>
           Enemy piece — you can only direct your own faction.
         </div>
       )}

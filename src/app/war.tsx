@@ -4,9 +4,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { useTRPC } from '~/lib/trpc'
-import { FACTION_BASE, FACTION_NAMES, GOLD_LINE, INK, INK_SOFT, LINE, PANEL } from '~/game/palette'
+import { FACTIONS, FACTION_NAMES, UI } from '~/scene/palette'
 
-const SLAB = "Rockwell, 'Roboto Slab', serif"
 const STAT_COLUMNS = [
   ['kills', 'Kills'],
   ['damage', 'Damage'],
@@ -33,10 +32,10 @@ export function WarPage() {
     <div className="space-y-8">
       <section className="flex flex-wrap items-end justify-between gap-3 pt-2">
         <div>
-          <div className="text-xs font-bold uppercase tracking-widest" style={{ color: GOLD_LINE }}>
+          <div className="text-xs font-bold uppercase tracking-widest" style={{ color: UI.accent }}>
             War room
           </div>
-          <h1 className="text-3xl font-bold" style={{ fontFamily: SLAB, color: INK }}>
+          <h1 className="text-3xl font-bold" style={{ color: UI.ink }}>
             {mode === 'blitz' ? 'Blitz War' : 'Campaign War'}
             {state ? ` · round ${state.game.roundNumber}` : ''}
           </h1>
@@ -44,7 +43,7 @@ export function WarPage() {
         <Link
           to={`/play/${mode}`}
           className="rounded-xl px-5 py-3 text-sm font-bold"
-          style={{ background: '#cf9c3c', color: '#3d2f0c', border: `2px solid ${GOLD_LINE}`, minHeight: 44 }}
+          style={{ background: UI.accent, color: UI.accentInk, minHeight: 44 }}
         >
           To the front
         </Link>
@@ -56,9 +55,17 @@ export function WarPage() {
             <div
               key={f}
               className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold"
-              style={{ background: PANEL, border: `2px solid ${LINE}`, color: INK, fontVariantNumeric: 'tabular-nums' }}
+              style={{
+                background: UI.bgRaise,
+                border: `1px solid ${UI.panelBorder}`,
+                color: UI.ink,
+                fontVariantNumeric: 'tabular-nums',
+              }}
             >
-              <span className="inline-block h-3 w-3 rounded-full" style={{ background: FACTION_BASE[f] }} />
+              <span
+                className="inline-block h-3 w-3 rounded-full"
+                style={{ background: FACTIONS[f].glow, boxShadow: `0 0 6px ${FACTIONS[f].glow}` }}
+              />
               {FACTION_NAMES[f]} — {s}
             </div>
           ))}
@@ -66,13 +73,16 @@ export function WarPage() {
       )}
 
       <section className="space-y-3">
-        <h2 className="text-xl font-bold" style={{ fontFamily: SLAB, color: INK }}>
+        <h2 className="text-xl font-bold" style={{ color: UI.ink }}>
           Leaderboard
         </h2>
-        <div className="overflow-x-auto rounded-2xl" style={{ background: PANEL, border: `2px solid ${LINE}` }}>
-          <table className="w-full text-sm" style={{ color: INK }}>
+        <div
+          className="overflow-x-auto rounded-2xl"
+          style={{ background: UI.bgRaise, border: `1px solid ${UI.panelBorder}` }}
+        >
+          <table className="w-full text-sm" style={{ color: UI.ink }}>
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wider" style={{ color: INK_SOFT }}>
+              <tr className="text-left text-xs uppercase tracking-wider" style={{ color: UI.inkSoft }}>
                 <th className="px-4 py-3">Player</th>
                 {STAT_COLUMNS.map(([k, label]) => (
                   <th key={k} className="px-3 py-3 text-right">
@@ -83,7 +93,7 @@ export function WarPage() {
             </thead>
             <tbody style={{ fontVariantNumeric: 'tabular-nums' }}>
               {(leaderboardQuery.data ?? []).map((p, i) => (
-                <tr key={p.playerId} style={{ borderTop: `1px solid ${LINE}` }}>
+                <tr key={p.playerId} style={{ borderTop: `1px solid ${UI.panelBorder}` }}>
                   <td className="px-4 py-2 font-semibold">
                     {i + 1}. {p.name}
                   </td>
@@ -96,7 +106,7 @@ export function WarPage() {
               ))}
               {leaderboardQuery.data?.length === 0 && (
                 <tr>
-                  <td className="px-4 py-4 text-sm" colSpan={7} style={{ color: INK_SOFT }}>
+                  <td className="px-4 py-4 text-sm" colSpan={7} style={{ color: UI.inkSoft }}>
                     No deeds recorded yet. Be the first on the ledger.
                   </td>
                 </tr>
@@ -107,16 +117,20 @@ export function WarPage() {
       </section>
 
       <section className="space-y-3 pb-8">
-        <h2 className="text-xl font-bold" style={{ fontFamily: SLAB, color: INK }}>
+        <h2 className="text-xl font-bold" style={{ color: UI.ink }}>
           War report
         </h2>
         <div className="space-y-2">
           {(reportQuery.data ?? []).map((r) => (
-            <div key={r.round} className="rounded-xl px-4 py-3 text-sm" style={{ background: PANEL, border: `2px solid ${LINE}` }}>
-              <span className="font-bold" style={{ color: INK, fontVariantNumeric: 'tabular-nums' }}>
+            <div
+              key={r.round}
+              className="rounded-xl px-4 py-3 text-sm"
+              style={{ background: UI.bgRaise, border: `1px solid ${UI.panelBorder}` }}
+            >
+              <span className="font-bold" style={{ color: UI.ink, fontVariantNumeric: 'tabular-nums' }}>
                 Round {r.round}
               </span>{' '}
-              <span style={{ color: INK_SOFT }}>
+              <span style={{ color: UI.inkSoft }}>
                 {r.deaths
                   .map(
                     (d) =>
@@ -127,7 +141,7 @@ export function WarPage() {
             </div>
           ))}
           {reportQuery.data?.length === 0 && (
-            <p className="text-sm" style={{ color: INK_SOFT }}>
+            <p className="text-sm" style={{ color: UI.inkSoft }}>
               No blood spilled yet. The quiet before the war.
             </p>
           )}

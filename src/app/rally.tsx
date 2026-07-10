@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { authClient } from '~/lib/auth-client'
 import { useTRPC } from '~/lib/trpc'
-import { GOLD_LINE, INK, INK_SOFT, LINE, PANEL } from '~/game/palette'
+import { UI } from '~/scene/palette'
 
 export function RallyPage() {
   const { code = '' } = useParams()
@@ -39,32 +39,29 @@ export function RallyPage() {
   return (
     <div
       className="flex min-h-dvh items-center justify-center px-4"
-      style={{ background: '#f6efdc', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      style={{ background: UI.bg, paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div
         className="w-full max-w-md rounded-2xl p-6"
-        style={{ background: PANEL, border: `2px solid ${LINE}` }}
+        style={{ background: UI.bgRaise, border: `1px solid ${UI.panelBorder}` }}
       >
-        <div className="text-xs font-bold uppercase tracking-widest" style={{ color: GOLD_LINE }}>
+        <div className="text-xs font-bold uppercase tracking-widest" style={{ color: UI.accent }}>
           Rally call
         </div>
-        {rallyQuery.isLoading && <p className="mt-3 text-sm" style={{ color: INK_SOFT }}>Loading the battle plan…</p>}
-        {rallyQuery.isError && <p className="mt-3 text-sm" style={{ color: INK_SOFT }}>This rally doesn't exist (or expired).</p>}
+        {rallyQuery.isLoading && <p className="mt-3 text-sm" style={{ color: UI.inkSoft }}>Loading the battle plan…</p>}
+        {rallyQuery.isError && <p className="mt-3 text-sm" style={{ color: UI.inkSoft }}>This rally doesn't exist (or expired).</p>}
         {rally && (
           <>
-            <h1
-              className="mt-2 text-2xl font-bold"
-              style={{ color: INK, fontFamily: "Rockwell, 'Roboto Slab', serif" }}
-            >
+            <h1 className="mt-2 text-2xl font-bold" style={{ color: UI.ink }}>
               {rally.creatorName} needs you
             </h1>
-            <p className="mt-2 text-sm" style={{ color: INK_SOFT }}>
+            <p className="mt-2 text-sm" style={{ color: UI.inkSoft }}>
               A battle plan for the <strong>{rally.mode}</strong> war: {rally.slate.length}{' '}
               {rally.slate.length === 1 ? 'order' : 'orders'} · applied by {rally.applies}{' '}
               {rally.applies === 1 ? 'player' : 'players'} so far.
             </p>
             {!rally.active && (
-              <p className="mt-2 text-sm font-semibold" style={{ color: INK_SOFT }}>
+              <p className="mt-2 text-sm font-semibold" style={{ color: UI.inkSoft }}>
                 This war has ended — the rally is a museum piece now.
               </p>
             )}
@@ -73,16 +70,15 @@ export function RallyPage() {
               disabled={busy || !rally.active}
               className="mt-5 w-full rounded-xl py-3 text-base font-bold"
               style={{
-                background: busy ? LINE : '#cf9c3c',
-                color: '#3d2f0c',
-                border: `2px solid ${GOLD_LINE}`,
+                background: busy ? UI.inkFaint : UI.accent,
+                color: UI.accentInk,
                 minHeight: 48,
               }}
             >
               {busy ? 'Casting your votes…' : 'Apply rally & join the war'}
             </button>
-            {error && <p className="mt-2 text-sm font-semibold" style={{ color: '#a4402a' }}>{error}</p>}
-            <p className="mt-3 text-xs" style={{ color: INK_SOFT }}>
+            {error && <p className="mt-2 text-sm font-semibold" style={{ color: UI.danger }}>{error}</p>}
+            <p className="mt-3 text-xs" style={{ color: UI.inkSoft }}>
               Applying casts 1 energy per order you haven't already voted on. You can change any vote afterwards.
             </p>
           </>
