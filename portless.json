@@ -1,0 +1,5 @@
+{
+  "name": "swg",
+  "script": "dev",
+  "proxy": true
+}

@@ -77,6 +77,17 @@ Done:
   `server/`" live there and in `CLAUDE.md`).
 - Local DB: Postgres 18 @ localhost:5432, db `social_war_games` (creds in `.env`,
   gitignored). `bun run db:push` synced. `bun run dev` → :3000 works.
+- **portless** ([vercel-labs/portless](https://github.com/vercel-labs/portless)):
+  named `.localhost` URL for the dev server. `portless.json` = `{name: swg}`;
+  `bun run dev:portless` (= `portless swg bun run dev`) → **https://swg.localhost**.
+  Portless injects `PORT` (server.ts already honors it) + `PORTLESS_URL`;
+  `server/auth.ts` prefers `PORTLESS_URL` for better-auth `baseURL`/`trustedOrigins`
+  so guest auth works at the named HTTPS origin (no-op without portless).
+  Verified live: `/`, `/healthz`, `/play/blitz` all 200 through the proxy; OS
+  trust store has portless's CA so browsers show a valid padlock. NB: `portless
+  doctor` warns "Node 24+ required" (box has Node 22) but running under Bun
+  bypasses that gate — it works. Vite HMR ws is on :24678 and isn't proxied
+  through the HTTPS origin, so expect full reloads (or `--no-tls`) not hot patches.
 - `design.md` (complete game spec: factions, board, pieces, voting, resolution),
   `ui.md` (palette, procedural piece recipes, mobile UX law), art proof preserved.
 - Kenney tile assets copied to `public/tiles/{town,exp,desert}` (828 PNGs) from
