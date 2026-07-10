@@ -63,7 +63,11 @@ const gameRouter = router({
   state: publicProcedure.input(z.object({ mode: modeSchema })).query(async ({ ctx, input }) => {
     const game = await activeGame(input.mode)
     const { snapshot, events } = await latestRound(game.id, game.roundNumber)
-    let me: { faction: number; energy: number; votedUnitIds: number[] } | null = null
+    let me: {
+      faction: number
+      energy: number
+      votes: { unitId: number; action: Action }[]
+    } | null = null
     if (ctx.session) {
       const player = await prisma.gamePlayer.findUnique({
         where: { gameId_userId: { gameId: game.id, userId: ctx.session.user.id } },
@@ -71,12 +75,12 @@ const gameRouter = router({
       if (player) {
         const myVotes = await prisma.vote.findMany({
           where: { gameId: game.id, round: game.roundNumber, playerId: ctx.session.user.id },
-          select: { unitId: true },
+          select: { unitId: true, action: true },
         })
         me = {
           faction: player.faction,
           energy: effectiveEnergy(player.voteEnergy, player.energyRound, game.roundNumber),
-          votedUnitIds: myVotes.map((v) => v.unitId),
+          votes: myVotes.map((v) => ({ unitId: v.unitId, action: v.action as unknown as Action })),
         }
       }
     }

@@ -9,6 +9,8 @@ import { RouteErrorBoundary } from './error-boundary'
 import { HomePage } from './home'
 import { Layout } from './layout'
 import { PlayPage } from './play'
+import { RallyPage } from './rally'
+import { WarPage } from './war'
 import { SignInPage } from './sign-in'
 import { SignUpPage } from './sign-up'
 
@@ -71,6 +73,8 @@ export const routes: RouteObject[] = [
       { path: 'dashboard', Component: DashboardPage, loader: dashboardLoader },
       // full-viewport war table — renders its own chrome, no nav layout
       { path: 'play/:mode', Component: PlayPage },
+      { path: 'rally/:code', Component: RallyPage },
+      { path: 'war/:mode', Component: WarPage },
     ],
   },
 ]
