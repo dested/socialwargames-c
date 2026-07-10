@@ -158,6 +158,11 @@ export async function resolveDueGames(): Promise<void> {
   if (ticking) return
   ticking = true
   try {
+    // self-heal: recreate wars if missing (e.g. the e2e suite truncates the DB
+    // after the server booted) or after one finishes
+    if ((await prisma.game.count({ where: { status: 'active' } })) < 2) {
+      await ensureActiveGames()
+    }
     const due = await prisma.game.findMany({
       where: { status: 'active', roundEndsAt: { lte: new Date() } },
     })
@@ -168,7 +173,6 @@ export async function resolveDueGames(): Promise<void> {
         log.error(`tick failed for game ${game.id}: ${formatError(e)}`)
       }
     }
-    if (due.length) await ensureActiveGames()
   } finally {
     ticking = false
   }

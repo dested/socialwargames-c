@@ -5,9 +5,39 @@ owns a unit — you vote on each piece's action, rounds resolve on a timer, winn
 actions execute. Mobile-first. Open source. Full game spec: **`design.md`**.
 Visual language: **`ui.md`**. Art-direction proof (open in browser): **`docs/art-proof.html`**.
 
-## Status (2026-07-09) — steps 1–2 done (sim + server); renderer next (step 3)
+## Status (2026-07-09) — ALL 5 build steps done; the game is playable end-to-end
+
+The core loop works and is verified: guest opens `/play/blitz` → anonymous
+session + auto-join → tap a piece → bottom sheet (portrait, HP pips, live tally,
+action buttons) → vote (target-picking on canvas) → 60s tick resolves → round
+flip animates → ledger credits → leaderboard. Rally links work across users.
+`bun run test:e2e` (5 specs) + `bun test shared` (22) + typecheck + prod build
+all green. Next: playtesting/balance, paint ripple animation, client-nav
+prefetch, deploy target (user deprioritized Render — wants cheap).
+
+## Routes
+
+- `/` landing (war cards) · `/war/:mode` war room (leaderboard + report)
+- `/play/:mode` the war table (mode = blitz | campaign); debug camera via
+  `?q=&r=&z=`; dev-only `window.__war` handle for e2e taps
+- `/rally/:code` rally landing → one-tap apply → redirects into the war
+- starter: `/sign-in` `/sign-up` `/dashboard` `/healthz` `/api/trpc` `/api/auth`
 
 Done:
+- **Step 3 (renderer)**: `src/game/` — `iso.ts` (fabletest geometry + calibrated
+  orientation tables), `board.ts` (terrain→draw list: shores, cliffs, slope
+  skirts, forests, ore glints, cast shadows), `pieces.ts` (art-proof recipes),
+  `renderer.ts` (painter-order merge of board + units, territory tints,
+  capital/factory tiles with Ember runtime hue-remap, HP pips, overlays,
+  screen↔cell math). Verified via headless mobile screenshots.
+- **Step 4 (mobile UX)**: `unit-sheet.tsx` bottom sheet per ui.md; play route
+  votes via tap-on-hex with legal-target highlights; order arrows (tally leader
+  + your vote); round-flip movement lerps + attack flashes (reduced-motion
+  snaps); rally share/apply pages; landing + war room pages.
+- **Step 5 (verify)**: `e2e/war.spec.ts` (join→tap capital→vote→energy→war
+  room) + updated starter smoke; e2e DB URL now derived from `.env` (see
+  gotchas). Interaction was also verified on iPhone-13 viewport incl. a second
+  guest applying a rally link.
 - **Build step 2 complete**: server layer.
   - Prisma models `Game/GamePlayer/Round/Vote/Rally/PlayerStat` (+ `User.isAnonymous`
     for better-auth's `anonymous` plugin — guests drop in with zero friction).
@@ -133,3 +163,17 @@ Not started: everything below ("Build plan").
   (except `import type`); `~/*` alias = `src/*` client-only; `shared/` is the new
   both-sides layer (pure, no deps).
 - The user's password for local Postgres is in `.env` only — never commit/echo it.
+- **e2e DB**: `social_war_games_test` was created with the `.env` credentials
+  (NOT postgres/postgres). `playwright.config.ts` + `e2e/global-setup.ts` derive
+  the test URL from `.env` at runtime; CI should set `E2E_DATABASE_URL`. After
+  schema changes, push to the test DB too (DATABASE_URL override + `db push`).
+- **Playwright cannot be driven by Bun** (launch pipe handshake times out on
+  Windows) — run ad-hoc automation scripts with `node` (`createRequire` into the
+  repo's node_modules); `bun run test:e2e` is fine (the CLI shells out to node).
+- **tRPC reserves Function.prototype words** (`apply`, `call`, `bind`...) as
+  procedure names — that's why the rally procedure is `rally.cast`.
+- Sim symmetry traps (already encoded in shared/, don't regress): float sums
+  must be order-independent (sort the 3 rotation samples before averaging);
+  `rot120(0,0)` must normalize `-0`; terrace cutoffs compare by quantile VALUE.
+- Tick loop self-heals: if <2 active games, `ensureActiveGames` runs (needed
+  because e2e truncates the DB after the server boots).

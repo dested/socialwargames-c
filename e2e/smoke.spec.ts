@@ -6,7 +6,7 @@ const USER = { name: 'Ada Lovelace', email: 'ada@example.com', password: 'passwo
 
 test('home page renders for a signed-out visitor', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Tan Starter' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Social War Games' })).toBeVisible()
   // Two "Sign in" links exist (nav + prose); the nav one is exact-cased.
   await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible()
   await expect(page).toHaveScreenshot('home.png', { fullPage: true })

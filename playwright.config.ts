@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig, devices } from '@playwright/test'
 
 // E2E runs against an isolated test database on a dedicated port so it never
@@ -6,8 +7,20 @@ import { defineConfig, devices } from '@playwright/test'
 // shots are deterministic. Override the DB with E2E_DATABASE_URL if needed.
 const PORT = 3100
 const baseURL = `http://localhost:${PORT}`
-const DATABASE_URL =
-  process.env.E2E_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/social_war_games_test'
+
+// Derive the test-DB URL from the developer's .env (the Playwright CLI doesn't
+// load .env — same story as prisma.config.ts): keep host + credentials, swap
+// the database name for the isolated test DB.
+function defaultTestDbUrl(): string {
+  try {
+    const url = /DATABASE_URL="?([^"\r\n]+)"?/.exec(readFileSync('.env', 'utf8'))?.[1]
+    if (url) return url.replace(/\/[^/]*$/, '/social_war_games_test')
+  } catch {
+    // no .env — CI provides E2E_DATABASE_URL instead
+  }
+  return 'postgres://postgres:postgres@localhost:5432/social_war_games_test'
+}
+const DATABASE_URL = process.env.E2E_DATABASE_URL ?? defaultTestDbUrl()
 
 export default defineConfig({
   testDir: './e2e',
