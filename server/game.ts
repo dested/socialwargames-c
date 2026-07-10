@@ -12,9 +12,11 @@ import { prisma } from './prisma'
 
 export type GameMode = 'blitz' | 'campaign'
 
+// Small boards on purpose: the whole war fits on one phone screen.
+// blitz R=9 → 271 cells, campaign R=13 → 547 cells.
 export const GAME_MODES: Record<GameMode, { mapRadius: number; roundSeconds: number; maxRounds: number }> = {
-  blitz: { mapRadius: 18, roundSeconds: 60, maxRounds: 60 * 24 }, // ~1 day
-  campaign: { mapRadius: 30, roundSeconds: 900, maxRounds: 4 * 24 * 14 }, // ~2 weeks
+  blitz: { mapRadius: 9, roundSeconds: 45, maxRounds: 80 * 24 }, // ~1 day
+  campaign: { mapRadius: 13, roundSeconds: 900, maxRounds: 4 * 24 * 14 }, // ~2 weeks
 }
 
 // Terrain is a pure function of (seed, R) — cache per game, it never changes.

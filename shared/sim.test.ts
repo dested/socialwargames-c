@@ -75,8 +75,8 @@ describe('mapgen', () => {
   });
 
   for (const seed of seeds) {
-    test(`seed ${seed}: gate, symmetry, capitals, composition (R=18)`, () => {
-      const t = generateMap(seed, 18);
+    test(`seed ${seed}: gate, symmetry, capitals, composition (R=9, blitz size)`, () => {
+      const t = generateMap(seed, 9);
       const R = t.R;
 
       // hard invariant: ≥85% of land reachable from every capital
@@ -121,15 +121,15 @@ describe('mapgen', () => {
     });
   }
 
-  test('campaign size (R=30) passes the gate too', () => {
-    const t = generateMap(99, 30);
+  test('campaign size (R=13) passes the gate too', () => {
+    const t = generateMap(99, 13);
     expect(t.reachability).toBeGreaterThanOrEqual(0.85);
   });
 });
 
 describe('initial snapshot', () => {
   test('3 capitals + starters, all on distinct legal cells', () => {
-    const t = generateMap(3, 18);
+    const t = generateMap(3, 9);
     const s = createInitialSnapshot(t);
     const caps = s.units.filter((u) => u.type === 'capital');
     expect(caps.length).toBe(3);
