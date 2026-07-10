@@ -15,6 +15,15 @@ flip animates → ledger credits → leaderboard. Rally links work across users.
 all green. Next: playtesting/balance, paint ripple animation, client-nav
 prefetch, deploy target (user deprioritized Render — wants cheap).
 
+Readability pass (user feedback, 2026-07-09): renderer x-ray ghost pass —
+after the painter walk, all units redraw at 0.4 alpha on top, so pieces behind
+mountains stay visible (opaque-over-self is a no-op, only occluded pixels
+change). Board-wide vote overlay: every unit's LEADING tally action renders as
+a faction-colored arrow (move) / red arrow + crosshair ring (attack) / floating
+chip badge (mine, build, produce) — hidden during round flips. HUD shows
+"round N · m:ss" and "⚡ n/25 votes"; a dismissible first-visit hint banner
+(localStorage `swg.hint`) explains the loop and auto-dismisses on first vote.
+
 ## Routes
 
 - `/` landing (war cards) · `/war/:mode` war room (leaderboard + report)

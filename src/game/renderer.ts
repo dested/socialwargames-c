@@ -41,8 +41,10 @@ export interface RenderView {
   selected?: CellRef | null;
   /** legal target cells while picking a move/attack target */
   targets?: CellRef[];
-  /** order arrows: from → to (cell coords) */
-  arrows?: { from: CellRef; to: CellRef; kind: 'move' | 'attack' }[];
+  /** order arrows: from → to (cell coords); color = faction line, bold = selected */
+  arrows?: { from: CellRef; to: CellRef; kind: 'move' | 'attack'; color?: string; bold?: boolean }[];
+  /** vote badges above cells for non-directional leading actions (mine/build/produce) */
+  badges?: { q: number; r: number; label: string; color: string; lift?: number }[];
   /** cells flashing from an attack this frame (alpha 0..1) */
   flashes?: { q: number; r: number; alpha: number }[];
 }
@@ -211,6 +213,15 @@ export class WarRenderer {
     }
     while (oi < ops.length) ops[oi++].draw();
 
+    // ---- x-ray pass: redraw every unit at partial alpha ON TOP of the board,
+    // so pieces tucked behind mountains stay readable as ghosts. Where a piece
+    // was already fully visible this composites its own pixels over themselves,
+    // which is a no-op for opaque paint — only occluded pieces change. ----
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    for (const op of ops) op.draw();
+    ctx.restore();
+
     // ---- overlays ----
     if (view.flashes) {
       for (const f of view.flashes) {
@@ -225,7 +236,10 @@ export class WarRenderer {
       this.strokeCellDiamond(ctx, view.selected.q, view.selected.r, tsx, tsy, z, GOLD_LINE, false);
     }
     if (view.arrows) {
-      for (const a of view.arrows) this.drawArrow(ctx, a, tsx, tsy, z, w, h);
+      for (const a of view.arrows) this.drawArrow(ctx, a, z, w, h);
+    }
+    if (view.badges) {
+      for (const b of view.badges) this.drawBadge(ctx, b, z, w, h);
     }
   }
 
@@ -287,9 +301,7 @@ export class WarRenderer {
 
   private drawArrow(
     ctx: CanvasRenderingContext2D,
-    a: { from: CellRef; to: CellRef; kind: 'move' | 'attack' },
-    tsx: (n: number) => number,
-    tsy: (n: number) => number,
+    a: { from: CellRef; to: CellRef; kind: 'move' | 'attack'; color?: string; bold?: boolean },
     zoom: number,
     w: number,
     h: number,
@@ -298,10 +310,11 @@ export class WarRenderer {
     const p1 = this.cellToScreen(a.to.q, a.to.r, w, h);
     const mx = (p0.x + p1.x) / 2;
     const my = (p0.y + p1.y) / 2 - 46 * zoom * 2.2;
+    const col = a.kind === 'attack' ? '#a4402a' : (a.color ?? INK);
     ctx.save();
-    ctx.strokeStyle = a.kind === 'attack' ? '#a4402a' : INK;
-    ctx.fillStyle = a.kind === 'attack' ? '#a4402a' : INK;
-    ctx.lineWidth = Math.max(1.5, 6 * zoom);
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
+    ctx.lineWidth = Math.max(1.5, (a.bold ? 9 : 6) * zoom);
     ctx.setLineDash([12 * zoom * 3, 9 * zoom * 3]);
     ctx.lineCap = 'round';
     ctx.beginPath();
@@ -318,6 +331,46 @@ export class WarRenderer {
     ctx.lineTo(p1.x - ah * Math.cos(ang + 0.42), p1.y - ah * Math.sin(ang + 0.42));
     ctx.closePath();
     ctx.fill();
+    // attack arrows get a crosshair ring on the target so they never read as
+    // moves (Ember's move color is itself a dark red)
+    if (a.kind === 'attack') {
+      const rr = Math.max(5, 30 * zoom);
+      ctx.lineWidth = Math.max(1.5, 5 * zoom);
+      ctx.beginPath();
+      ctx.arc(p1.x, p1.y, rr, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** small labeled chip floating above a cell — the "what's being voted" glance layer */
+  private drawBadge(
+    ctx: CanvasRenderingContext2D,
+    b: { q: number; r: number; label: string; color: string; lift?: number },
+    zoom: number,
+    w: number,
+    h: number,
+  ): void {
+    const p = this.cellToScreen(b.q, b.r, w, h);
+    const y = p.y - (b.lift ?? 170) * zoom;
+    if (p.x < -80 || p.x > w + 80 || y < -40 || y > h + 40) return;
+    const fs = Math.max(10, Math.min(14, 44 * zoom));
+    ctx.save();
+    ctx.font = `700 ${fs}px system-ui, sans-serif`;
+    const tw = ctx.measureText(b.label).width;
+    const padX = fs * 0.45;
+    const hh = fs * 0.78;
+    ctx.fillStyle = 'rgba(253,248,234,0.94)';
+    ctx.strokeStyle = b.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(p.x - tw / 2 - padX, y - hh, tw + padX * 2, hh * 2, hh);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = INK;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(b.label, p.x, y + fs * 0.06);
     ctx.restore();
   }
 

@@ -13,7 +13,7 @@ import { UNIT_STATS, canStand, canTraverse, findPath } from '../../shared/units'
 import { authClient } from '~/lib/auth-client'
 import { useTRPC } from '~/lib/trpc'
 import { WarRenderer, type RenderView } from '~/game/renderer'
-import { FACTION_BASE } from '~/game/palette'
+import { FACTIONS, FACTION_BASE, FACTION_NAMES } from '~/game/palette'
 import { UnitSheet } from './unit-sheet'
 
 type Mode = 'blitz' | 'campaign'
@@ -30,6 +30,16 @@ export function PlayPage() {
   const [targetKind, setTargetKind] = useState<TargetKind | null>(null)
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'sharing'>('idle')
   const [now, setNow] = useState(() => Date.now())
+
+  // first-visit hint (SSR-safe: read localStorage after mount)
+  const [hintDismissed, setHintDismissed] = useState(true)
+  useEffect(() => {
+    setHintDismissed(localStorage.getItem('swg.hint') === '1')
+  }, [])
+  const dismissHint = () => {
+    localStorage.setItem('swg.hint', '1')
+    setHintDismissed(true)
+  }
 
   const stateQuery = useQuery(
     trpc.game.state.queryOptions({ mode: mode as Mode }, { refetchInterval: 2500 }),
@@ -98,6 +108,7 @@ export function PlayPage() {
   const castVote = async (unitId: number, action: Action) => {
     if (!gameId) return
     setTargetKind(null)
+    dismissHint() // first vote cast → the loop clicked; stop explaining it
     try {
       await castMutation.mutateAsync({ gameId, votes: [{ unitId, action }] })
       await Promise.all([stateQuery.refetch(), tallyQuery.refetch()])
@@ -164,14 +175,14 @@ export function PlayPage() {
     selected: null as Unit | null,
     targets: [] as Cell[],
     myVote: null as Action | null,
-    leader: null as Action | null,
+    tally: [] as { unitId: number; actions: { action: Action; weight: number }[] }[],
   }).current
   latest.snapshot = state?.snapshot ?? null
   latest.territory = territory
   latest.selected = selected
   latest.targets = targets
   latest.myVote = selected ? myVoteFor(selected.id) : null
-  latest.leader = selected ? (tallyQuery.data?.find((t) => t.unitId === selected.id)?.actions[0]?.action ?? null) : null
+  latest.tally = tallyQuery.data ?? []
 
   // dev/e2e handle: lets tests find exact screen coords of cells
   if (import.meta.env.DEV && typeof window !== 'undefined') {
@@ -285,16 +296,38 @@ export function PlayPage() {
           }
         }
 
-        // order arrows for the selected piece: the leader + your vote
-        if (latest.selected) {
+        // board-wide vote overlay: every unit's LEADING voted action, at a
+        // glance — faction-colored arrows for move/attack, chips for the rest.
+        // Hidden during the round flip so the animation reads clean.
+        if (!flipRef.current) {
           const arrows: NonNullable<RenderView['arrows']> = []
-          const from = { q: latest.selected.q, r: latest.selected.r }
-          for (const a of [latest.leader, latest.myVote]) {
-            if (a && (a.kind === 'move' || a.kind === 'attack')) {
-              arrows.push({ from, to: { q: a.q, r: a.r }, kind: a.kind === 'attack' ? 'attack' : 'move' })
+          const badges: NonNullable<RenderView['badges']> = []
+          const byId = new Map(view.units.map((u) => [u.id, u]))
+          for (const t of latest.tally) {
+            const u = byId.get(t.unitId)
+            const lead = t.actions[0]?.action
+            if (!u || !lead) continue
+            const color = FACTIONS[u.faction].line
+            const bold = latest.selected?.id === u.id
+            if (lead.kind === 'move' || lead.kind === 'attack') {
+              arrows.push({ from: { q: u.q, r: u.r }, to: { q: lead.q, r: lead.r }, kind: lead.kind, color, bold })
+            } else if (lead.kind === 'mine') {
+              badges.push({ q: u.q, r: u.r, label: '⛏ mine', color })
+            } else if (lead.kind === 'build') {
+              badges.push({ q: lead.q, r: lead.r, label: '⚒ build', color, lift: 60 })
+            } else if (lead.kind === 'produce') {
+              const tall = u.type === 'capital' || u.type === 'factory'
+              badges.push({ q: u.q, r: u.r, label: `+ ${lead.unit}`, color, lift: tall ? 290 : 170 })
             }
           }
+          // your own pending vote on the selected piece, even if it's not leading
+          const sel = latest.selected
+          const mv = latest.myVote
+          if (sel && mv && (mv.kind === 'move' || mv.kind === 'attack')) {
+            arrows.push({ from: { q: sel.q, r: sel.r }, to: { q: mv.q, r: mv.r }, kind: mv.kind, bold: true })
+          }
           view.arrows = arrows
+          view.badges = badges
         }
 
         renderer.draw(ctx, view, w, h)
@@ -441,12 +474,46 @@ export function PlayPage() {
           ))}
         </div>
         <div className="font-bold" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          <span className="text-xs font-semibold" style={{ color: '#71634a' }}>
+            round {state?.game.roundNumber ?? '—'} ·{' '}
+          </span>
           {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
         </div>
-        <div className="text-xs font-semibold" style={{ color: '#71634a', fontVariantNumeric: 'tabular-nums' }}>
-          {state?.me ? `⚡ ${state.me.energy}/25` : 'joining…'}
+        <div
+          className="text-xs font-semibold"
+          style={{ color: '#71634a', fontVariantNumeric: 'tabular-nums' }}
+          title="Vote energy — each new order costs 1, +5 back every round"
+        >
+          {state?.me ? `⚡ ${state.me.energy}/25 votes` : 'joining…'}
         </div>
       </div>
+
+      {/* first-visit hint — top banner so it never blocks board taps */}
+      {!hintDismissed && state?.me && myFaction >= 0 && (
+        <div
+          className="absolute inset-x-3 z-10 rounded-xl px-3 py-2 text-sm shadow-sm"
+          style={{
+            top: 'calc(env(safe-area-inset-top) + 52px)',
+            background: '#fdf8ea',
+            border: '2px solid #d9cca9',
+            color: '#443a26',
+          }}
+        >
+          <span className="font-bold" style={{ color: FACTIONS[myFaction].line }}>
+            You command the {FACTION_NAMES[myFaction]}.
+          </span>{' '}
+          Tap one of your pieces and vote its next order — when the timer hits zero, the most-voted
+          order per piece executes. Arrows and chips show what every side is voting right now. ⚡ is
+          your vote energy: each new order costs 1, and you get 5 back every round.
+          <button
+            onClick={dismissHint}
+            className="mt-2 block w-full rounded-lg py-2 font-bold"
+            style={{ border: '2px solid #cf9c3c', color: '#6b5116', minHeight: 40 }}
+          >
+            Got it
+          </button>
+        </div>
+      )}
 
       <canvas ref={canvasRef} className="h-full w-full touch-none" style={{ display: 'block' }} />
 
