@@ -3,26 +3,44 @@
 **"TwitchPlaysPokemon, but tanks."** Three factions, hundreds of players each; nobody
 owns a unit — you vote on each piece's action, rounds resolve on a timer, winning
 actions execute. Mobile-first. Open source. Full game spec: **`design.md`**.
-Visual language: **`ui.md`**. Art-direction proof (open in browser): **`docs/art-proof.html`**.
+Visual language (3D diorama + holo layer): **`ui.md`**.
 
-## Status (2026-07-09) — ALL 5 build steps done; the game is playable end-to-end
+## Status (2026-07-10, branch `rebuild/3d`) — full 3D rebuild, playable end-to-end
 
-The core loop works and is verified: guest opens `/play/blitz` → anonymous
-session + auto-join → tap a piece → bottom sheet (portrait, HP pips, live tally,
-action buttons) → vote (target-picking on canvas) → 60s tick resolves → round
-flip animates → ledger credits → leaderboard. Rally links work across users.
-`bun run test:e2e` (5 specs) + `bun test shared` (22) + typecheck + prod build
-all green. Next: playtesting/balance, paint ripple animation, client-nav
-prefetch, deploy target (user deprioritized Render — wants cheap).
+User verdict on the 2D sketch version: "I hate how this looks, the scale the
+scope all feels wrong." Rebuilt from scratch per his choices (diorama + holo
+overlay, shrink + retune, Three.js):
 
-Readability pass (user feedback, 2026-07-09): renderer x-ray ghost pass —
-after the painter walk, all units redraw at 0.4 alpha on top, so pieces behind
-mountains stay visible (opaque-over-self is a no-op, only occluded pixels
-change). Board-wide vote overlay: every unit's LEADING tally action renders as
-a faction-colored arrow (move) / red arrow + crosshair ring (attack) / floating
-chip badge (mine, build, produce) — hidden during round flips. HUD shows
-"round N · m:ss" and "⚡ n/25 votes"; a dismissible first-visit hint banner
-(localStorage `swg.hint`) explains the loop and auto-dismisses on first vote.
+- **The sketch era is deleted** — `src/game/` (iso canvas renderer), the 828
+  Kenney tile PNGs, `docs/art-proof.html`. Do not resurrect them.
+- **`src/scene/` is the renderer now** (Three.js r185): `palette.ts` (faction +
+  WORLD + UI dark-glass tokens, dep-free), `hex3d.ts` (axial→world, beveled hex
+  prism math, `cellHash` jitter), `terrain3d.ts` (ONE merged land mesh with
+  baked vertex colors + instanced trees/ore/mountain-caps + ocean discs),
+  `pieces3d.ts` (toy miniatures on faction base pucks, cached templates),
+  `holo.ts` (arced vote arrows, attack reticles, chip/HP sprites, rings,
+  selection beam), `scene.ts` (WarScene: camera rig, gestures, picking,
+  per-frame diff sync), `portrait.ts` (shared offscreen GL studio for sheet
+  portraits).
+- **Scale retuned**: blitz R=9/45s rounds (271 cells), campaign R=13/900s
+  (547 cells) — the whole war fits one phone screen. Old numbers (R=18/R=30,
+  60s) are gone from `server/game.ts`, sim tests, and design.md.
+- **Dark glass chrome everywhere**: play HUD (+ round progress bar), unit
+  sheet, home/war/rally, and `.dark` on `<html>` so starter pages match.
+- Loop verified end-to-end in 3D (desktop + iPhone viewports, screenshots):
+  join → tap capital (raycast) → sheet with 3D portrait → produce/move votes →
+  arrows/chips/territory/targets/selection all render. `bun run test:e2e`
+  (5 specs, baselines regenerated for dark theme) + `bun test shared` (22) +
+  typecheck + prod build all green.
+- Next: playtesting/balance; maybe code-split the play route (three puts the
+  client chunk >500kB, vite warns); cheap deploy target (Render deprioritized).
+
+Legibility carry-overs from the 2D feedback (all live in 3D): board-wide vote
+overlay (leading tally action per unit — faction-glow arc for move, red arc +
+reticle for attack, floating chip for mine/build/produce — hidden during round
+flips), labeled HUD ("round N · m:ss", "⚡ n/25 votes"), first-visit hint banner
+(localStorage `swg.hint`, auto-dismisses on first vote). Occlusion is a
+non-issue in 3D (camera orbits; pieces raycast-pickable through terrain gaps).
 
 ## Routes
 
@@ -33,12 +51,8 @@ chip badge (mine, build, produce) — hidden during round flips. HUD shows
 - starter: `/sign-in` `/sign-up` `/dashboard` `/healthz` `/api/trpc` `/api/auth`
 
 Done:
-- **Step 3 (renderer)**: `src/game/` — `iso.ts` (fabletest geometry + calibrated
-  orientation tables), `board.ts` (terrain→draw list: shores, cliffs, slope
-  skirts, forests, ore glints, cast shadows), `pieces.ts` (art-proof recipes),
-  `renderer.ts` (painter-order merge of board + units, territory tints,
-  capital/factory tiles with Ember runtime hue-remap, HP pips, overlays,
-  screen↔cell math). Verified via headless mobile screenshots.
+- **Step 3 (renderer)**: originally the `src/game/` sketch-canvas port —
+  REPLACED 2026-07-10 by the Three.js `src/scene/` diorama (see Status).
 - **Step 4 (mobile UX)**: `unit-sheet.tsx` bottom sheet per ui.md; play route
   votes via tap-on-hex with legal-target highlights; order arrows (tally leader
   + your vote); round-flip movement lerps + attack flashes (reduced-motion
@@ -89,9 +103,7 @@ Done:
   bypasses that gate — it works. Vite HMR ws is on :24678 and isn't proxied
   through the HTTPS origin, so expect full reloads (or `--no-tls`) not hot patches.
 - `design.md` (complete game spec: factions, board, pieces, voting, resolution),
-  `ui.md` (palette, procedural piece recipes, mobile UX law), art proof preserved.
-- Kenney tile assets copied to `public/tiles/{town,exp,desert}` (828 PNGs) from
-  fabletest-sketch.
+  `ui.md` (3D diorama + holo visual language, mobile UX law).
 
 Not started: everything below ("Build plan").
 
@@ -161,9 +173,10 @@ Not started: everything below ("Build plan").
 - Voting: raw votes + **rally links** (shareable slates) — NOT proposal/endorse.
 - Sim: minimal-deep (Worker/Tank/Scout/Factory/Capital, one communal ore pool per
   faction). Numbers in design.md.
-- Hex topology on the iso diamond renderer (axial coords; 6 neighbors).
-- Art: Kenney Sketch world + procedural pieces (docs/art-proof.html). No new asset
-  packs; faction 3 = hue-remap.
+- Hex topology (axial coords; 6 neighbors), rendered as true-3D hexes (Three.js).
+- Art (2026-07-10): warm low-poly diorama + holographic data layer — "terrain
+  never glows, data always does" (ui.md). All geometry procedural primitives;
+  no asset packs, no textures. Small boards are a feature (one-screen war).
 - Stack: sal-starter monolith; snapshots as CDN-cacheable JSON; no serverless.
 - Terrain must be interesting AND navigable (chokepoints from water/cliffs/forests,
   but the ≥85% reachability gate is a hard invariant).
@@ -174,11 +187,18 @@ Not started: everything below ("Build plan").
 
 - Windows; Bun ≥1.3; Postgres 18 local (also a PG17 install exists; 5432 = PG18).
   psql not on PATH: `"/c/Program Files/PostgreSQL/18/bin/psql"`.
-- fabletest-sketch repo (`G:\code\fabletest-sketch`) is the engine donor — its
-  `CLIFFNOTES.md` documents tile geometry, walkability, painter order, and the
-  hard-won orientation tables. Read it before porting renderer code.
-- Kenney site search is JS-only; per-pack sample sheets live at
-  `kenney.nl/media/pages/assets/<slug>/<hash>/sample.png` (grep the asset page HTML).
+- **three r185 traps** (cost a debugging session): InstancedMesh does NOT
+  receive shadows (casting is fine) — that's why the land is one merged mesh
+  with vertex colors; PCFSoftShadowMap is deprecated (auto-downgrades to PCF
+  with a warning); resizing a DirectionalLight shadow camera needs an explicit
+  `shadow.camera.updateProjectionMatrix()`.
+- Headless chromium uses SwiftShader (fine for screenshots); to test on the
+  real GPU: `chromium.launch({ args: ['--use-gl=angle', '--use-angle=d3d11',
+  '--enable-gpu'] })`.
+- Dev handle `window.__war = { renderer: WarScene, latest, myFaction }`;
+  `renderer.cellToScreen(q, r)` is the e2e tap contract. Fake-tally injection
+  for overlay screenshots must re-inject on an interval — a React re-render
+  (500ms clock tick) resets `latest.tally` from the query cache.
 - Starter rules: Express 5 required; server-only code never imported from `src/`
   (except `import type`); `~/*` alias = `src/*` client-only; `shared/` is the new
   both-sides layer (pure, no deps).

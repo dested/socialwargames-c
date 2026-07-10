@@ -11,30 +11,30 @@ from their phone a few times a day.
 2. The map shows the war: territory paint, your faction's pieces, the front line.
 3. Tap a piece → bottom sheet: its HP, what the faction is currently voting for it
    to do, and your action buttons. Casting a vote costs 1 energy.
-4. Round ends (60s blitz / 15min campaign) → all votes tallied → every unit executes
+4. Round ends (45s blitz / 15min campaign) → all votes tallied → every unit executes
    its winning action simultaneously → animated round flip.
 5. Everything your winning votes caused (damage, kills, tiles, ore) is credited to
    you on the ledger. Leaderboards are the memory of the war.
 
-Two wars run concurrently each season: **Blitz** (60s rounds, ~1 day) and
+Two wars run concurrently each season: **Blitz** (45s rounds, ~1 day) and
 **Campaign** (15min rounds, ~2 weeks). Same account plays both.
 
 ## Factions
 
 | | color | |
 |---|---|---|
-| **Verdant Compact** | green `#7fb43a` | native Kenney green tiles |
-| **Dusk Covenant** | purple `#9a6fd0` | native Kenney purple tiles |
-| **Ember Pact** | red `#d0603f` | hue-remap pipeline |
+| **Verdant Compact** | green `#7fb43a` | |
+| **Dusk Covenant** | purple `#9a6fd0` | |
+| **Ember Pact** | red `#d0603f` | |
 
 Three factions self-balance: the two trailing sides always share an enemy.
 
 ## The board
 
 Hex-topology on axial coordinates `(q, r)`; neighbors `(±1,0) (0,±1) (+1,−1) (−1,+1)`.
-Rendered on the fabletest-sketch isometric diamond engine (each cell one diamond).
-Board is a hexagon of radius R: `max(|q|,|r|,|q+r|) ≤ R`. Blitz R=18 (~1k cells),
-Campaign R=30 (~2.8k cells).
+Rendered as a true-3D hex diorama (Three.js — see `ui.md`). Board is a hexagon of
+radius R: `max(|q|,|r|,|q+r|) ≤ R`. **Small on purpose — the whole war fits on one
+phone screen**: Blitz R=9 (271 cells), Campaign R=13 (547 cells).
 
 **Perfect fairness via 3-fold symmetry**: terrain is generated for one 120° wedge and
 rotated twice (`rot(q,r) = (−q−r, q)`). Every faction's third of the map is identical.
