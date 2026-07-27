@@ -1,0 +1,17 @@
+# drydock.yaml — Drydock deploy manifest. Replaces render.yaml.
+# Drydock reads this to build, run, and provision your app. Edit here or in
+# the portal (portal writes win on the next "Re-commit"). Secrets live in the
+# portal (SSM), never in this file.
+name: socialwargames
+kind: ssr          # ssr | static
+runtime: bun        # bun | node
+port: 3000
+memory: 256        # MiB soft reservation
+build: bun run build
+start: bun run start
+database: true      # provision Postgres + DATABASE_URL
+prisma: true        # prisma generate on build, db push predeploy
+predeploy: bunx prisma db push --accept-data-loss
+domains:
+  - socialwargames.com
+dnsZone: socialwargames.com
