@@ -89,8 +89,10 @@ async function createServer() {
       res.status(404).json({ error: 'Not found' })
       return
     }
-    // Only GET requests for extension-less paths are SSR navigations.
-    if (req.method !== 'GET' || LOOKS_LIKE_FILE.test(req.path)) {
+    // GET and HEAD on extension-less paths are SSR navigations; express strips
+    // the body from a HEAD response, and unfurlers/uptime checks use it.
+    const navigational = req.method === 'GET' || req.method === 'HEAD'
+    if (!navigational || LOOKS_LIKE_FILE.test(req.path)) {
       res.status(404).type('txt').end('Not found')
       return
     }
