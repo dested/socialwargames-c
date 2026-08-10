@@ -28,11 +28,14 @@ All tokens live in `src/scene/palette.ts` — sample from there, never invent.
    sprites ("+ tank", "⛏ mine"); legal targets = pulsing gold hex rings;
    selection = faction-glow ring + vertical light beam; damage = HP pip
    sprites (only when hurt). All `MeshBasicMaterial` (unlit), depthWrite off.
-3. **Chrome** (`UI` tokens): dark glass floating over the bright world —
-   `UI.panel` rgba(13,18,24,.86) + blur, 1px `UI.panelBorder` hairlines,
-   `UI.ink` text, `UI.accent #ffd76a` command gold for timers/CTAs/rally.
-   Non-board pages use `UI.bg #0e1319` + `UI.bgRaise` cards; the shadcn
-   `.dark` class is set on `<html>` so starter pages match.
+3. **Chrome — PROPAGANDA POSTER (2026-08-09, supersedes dark glass)**: every
+   HUD panel, sheet, and page is war-office paper pinned over the diorama.
+   Tokens + primitives in `src/app/poster.tsx` (`POSTER` palette, `Stamp`,
+   `Panel`, `Grain`, `Sunburst`, `Eyebrow`, `PageShell`) and component classes
+   in `src/styles/app.css` (`.poster-btn[--gold|--ink]`, `.ticker`,
+   `.poster-tilt-*`, `.rise`, `.blink-dot`). The scene `UI` tokens in
+   `palette.ts` are legacy — don't use them for new chrome. `.dark` is OFF;
+   the app is light everywhere (a sunlit board deserves daylight chrome).
 
 ## Factions
 
@@ -83,3 +86,26 @@ per (type, faction) and cloned. Rules:
 Bottom sheet for unit interaction — never floating tooltips. 44px minimum
 targets. Safe-area insets everywhere. One-glance legibility: every mechanic
 ships with its on-board indicator + labeled HUD + hint text.
+
+## App chrome (non-game pages) — the recruitment poster
+
+Landing, war room, rally, auth, 404 are WWII propaganda posters: aged paper
+(`#eee3c6`), 3px ink (`#28211a`) borders, hard offset shadows (`4px 4px 0`),
+rotated rubber stamps (stamp red `#a03723`), sunburst conic backdrops, SVG
+grain overlays, `★★★` dividers, gold `#cf9c3c` CTAs.
+
+- Type: display `Alfa Slab One` · labels/buttons `Oswald` (condensed caps,
+  wide tracking) · flavor/numbers `Special Elite` (typewriter, tabular) ·
+  body serif Georgia stack. All @fontsource, imported in app.css.
+- Poster art: AI-generated (GPT Image 2) silkscreen posters in
+  `public/posters/*.webp` — three faction recruitment portraits + the hero
+  battlefield (`hero-og.jpg` for og:image). Regenerate via the openai-image
+  skill with the "vintage 1940s propaganda, silkscreen lithograph, no text"
+  prompt family; type is ALWAYS set in CSS, never baked into the image.
+- Landing shows LIVE war state (round, countdown, tricolor front-line bar)
+  via `game.state` with a 15s refetch + 1s local countdown tick.
+- In-game chrome (play HUD, hint telegram, target bar, unit sheet) is the
+  same paper language at ~95% opacity over the board; faction dots/chips use
+  faction `mid` colors with ink borders (glow colors stay on the holo layer).
+- Motion: `.rise` staggered entrances, slogan ticker, blink-dot — all
+  disabled under `prefers-reduced-motion`.

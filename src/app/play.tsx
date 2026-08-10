@@ -14,7 +14,8 @@ import { UNIT_STATS, canStand, canTraverse, findPath } from '../../shared/units'
 import { authClient } from '~/lib/auth-client'
 import { useTRPC } from '~/lib/trpc'
 import { WarScene, type SceneView } from '~/scene/scene'
-import { FACTIONS, FACTION_BASE, FACTION_NAMES, UI } from '~/scene/palette'
+import { FACTIONS, FACTION_BASE, FACTION_NAMES } from '~/scene/palette'
+import { CONDENSED, POSTER, TYPEWRITER } from './poster'
 import { UnitSheet } from './unit-sheet'
 
 type Mode = 'blitz' | 'campaign'
@@ -352,84 +353,87 @@ export function PlayPage() {
     <div className="fixed inset-0 flex flex-col" style={{ height: '100dvh', background: '#8fb6c6' }}>
       <canvas ref={canvasRef} className="h-full w-full touch-none" style={{ display: 'block' }} />
 
-      {/* floating glass HUD */}
+      {/* war-office paper HUD (poster chrome over the sunlit diorama) */}
       <div
         className="absolute inset-x-2 top-0 z-10"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }}
       >
         <div
-          className="flex items-center justify-between rounded-2xl px-3 text-sm"
+          className="flex items-center justify-between px-3 text-sm"
           style={{
-            background: UI.panel,
-            border: `1px solid ${UI.panelBorder}`,
-            color: UI.ink,
+            background: 'rgba(245,236,212,0.95)',
+            border: `3px solid ${POSTER.ink}`,
+            borderRadius: 4,
+            color: POSTER.ink,
             minHeight: 46,
-            backdropFilter: 'blur(10px)',
-            boxShadow: '0 6px 24px rgba(0,0,0,0.25)',
+            boxShadow: '3px 3px 0 rgba(40,33,26,0.55)',
           }}
         >
-          <div className="flex items-center gap-2.5 font-semibold" style={{ fontVariantNumeric: 'tabular-nums' }}>
+          <div className="flex items-center gap-2.5 font-semibold" style={{ fontVariantNumeric: 'tabular-nums', fontFamily: CONDENSED }}>
             {state?.snapshot.scores.map((s, f) => (
               <span key={f} className="flex items-center gap-1.5">
                 <span
-                  className="inline-block h-3 w-3 rounded-full"
+                  className="inline-block h-3 w-3"
                   style={{
-                    background: FACTIONS[f].glow,
-                    boxShadow: f === myFaction ? `0 0 0 2px ${UI.ink}` : `0 0 6px ${FACTIONS[f].glow}`,
+                    background: FACTION_BASE[f],
+                    border: `2px solid ${POSTER.ink}`,
+                    boxShadow: f === myFaction ? `0 0 0 2px ${POSTER.gold}` : 'none',
                   }}
                 />
                 {s}
               </span>
             ))}
           </div>
-          <div className="font-bold" style={{ fontVariantNumeric: 'tabular-nums', color: UI.accent }}>
-            <span className="text-xs font-semibold" style={{ color: UI.inkSoft }}>
+          <div className="font-bold" style={{ fontVariantNumeric: 'tabular-nums', fontFamily: TYPEWRITER, color: POSTER.ink }}>
+            <span className="text-xs font-semibold" style={{ color: POSTER.inkSoft }}>
               round {state?.game.roundNumber ?? '—'} ·{' '}
             </span>
             {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
           </div>
           <div
             className="text-xs font-semibold"
-            style={{ color: UI.inkSoft, fontVariantNumeric: 'tabular-nums' }}
+            style={{ color: POSTER.inkSoft, fontVariantNumeric: 'tabular-nums', fontFamily: CONDENSED }}
             title="Vote energy — each new order costs 1, +5 back every round"
           >
             {state?.me ? `⚡ ${state.me.energy}/25 votes` : 'joining…'}
           </div>
         </div>
         {/* round progress */}
-        <div className="mx-3 h-0.5 overflow-hidden rounded-b" style={{ background: 'rgba(255,255,255,0.08)' }}>
+        <div className="mx-1 h-1 overflow-hidden" style={{ background: 'rgba(40,33,26,0.35)', borderRadius: 2 }}>
           <div
             className="h-full"
-            style={{ width: `${roundFrac * 100}%`, background: UI.accent, opacity: 0.8, transition: 'width 0.5s linear' }}
+            style={{ width: `${roundFrac * 100}%`, background: POSTER.gold, transition: 'width 0.5s linear' }}
           />
         </div>
       </div>
 
-      {/* first-visit hint — top banner so it never blocks board taps */}
+      {/* first-visit hint — field-orders telegram, top so it never blocks board taps */}
       {!hintDismissed && state?.me && myFaction >= 0 && (
         <div
-          className="absolute inset-x-3 z-10 mx-auto rounded-2xl px-4 py-3 text-sm"
+          className="absolute inset-x-3 z-10 mx-auto px-4 py-3 text-sm"
           style={{
-            top: 'calc(env(safe-area-inset-top) + 64px)',
+            top: 'calc(env(safe-area-inset-top) + 68px)',
             maxWidth: 560,
-            background: UI.panel,
-            border: `1px solid ${UI.panelBorder}`,
-            color: UI.ink,
-            backdropFilter: 'blur(10px)',
-            boxShadow: '0 6px 24px rgba(0,0,0,0.3)',
+            background: POSTER.panel,
+            border: `3px solid ${POSTER.ink}`,
+            borderRadius: 4,
+            color: POSTER.ink,
+            boxShadow: '4px 4px 0 rgba(40,33,26,0.55)',
           }}
         >
-          <span className="font-bold" style={{ color: FACTIONS[myFaction].glow }}>
+          <div
+            className="mb-1 text-[11px] font-bold uppercase"
+            style={{ fontFamily: CONDENSED, letterSpacing: '0.25em', color: POSTER.stamp }}
+          >
+            ★ Field orders
+          </div>
+          <span className="font-bold" style={{ color: FACTIONS[myFaction].line }}>
             You command the {FACTION_NAMES[myFaction]}.
           </span>{' '}
           Tap one of your pieces and vote its next order — when the timer hits zero, the most-voted
           order per piece executes. Glowing arcs and chips show what every side is voting right now.
           ⚡ is your vote energy: each new order costs 1, and you get 5 back every round.
-          <button
-            onClick={dismissHint}
-            className="mt-2.5 block w-full rounded-xl py-2 font-bold"
-            style={{ border: `1px solid ${UI.accentLine}`, color: UI.accent, minHeight: 40 }}
-          >
+          <button onClick={dismissHint} className="poster-btn poster-btn--gold mt-3 w-full" style={{ minHeight: 40 }}>
             Got it
           </button>
         </div>
@@ -438,23 +442,19 @@ export function PlayPage() {
       {/* target-picking prompt bar (sheet collapses while aiming) */}
       {targetKind && selected && (
         <div
-          className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-between px-4 py-3 text-sm font-bold"
+          className="absolute inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 px-4 py-3 text-sm font-bold"
           style={{
             paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)',
-            background: UI.panel,
-            borderTop: `1px solid ${UI.accentLine}`,
-            color: UI.ink,
-            backdropFilter: 'blur(10px)',
+            background: 'rgba(245,236,212,0.96)',
+            borderTop: `3px solid ${POSTER.ink}`,
+            color: POSTER.ink,
+            fontFamily: TYPEWRITER,
           }}
         >
           <span>
             Tap a glowing hex to {targetKind} {targetKind === 'build' ? 'the factory' : ''}
           </span>
-          <button
-            onClick={() => setTargetKind(null)}
-            className="rounded-xl px-4 py-2"
-            style={{ border: `1px solid ${UI.panelBorder}`, minHeight: 44 }}
-          >
+          <button onClick={() => setTargetKind(null)} className="poster-btn" style={{ minHeight: 44 }}>
             Cancel
           </button>
         </div>

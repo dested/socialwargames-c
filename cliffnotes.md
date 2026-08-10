@@ -5,6 +5,21 @@ owns a unit — you vote on each piece's action, rounds resolve on a timer, winn
 actions execute. Mobile-first. Open source. Full game spec: **`design.md`**.
 Visual language (3D diorama + holo layer): **`ui.md`**.
 
+## Status (2026-08-09) — 3D diorama + PROPAGANDA-POSTER chrome, ready to show people
+
+Chrome redesign merged onto the 3D rebuild: every non-canvas page (landing,
+war room, rally, auth, 404) and the in-game chrome (play HUD, hint telegram,
+target bar, unit sheet) is now WWII-recruitment-poster styled — aged paper,
+ink borders, hard shadows, stamps, AI-generated silkscreen posters
+(`public/posters/*.webp`, GPT Image 2). Dark-glass chrome is superseded; the
+scene `UI` tokens in `src/scene/palette.ts` are legacy (holo layer + diorama
+unchanged — "terrain never glows, data always does" still the law). `.dark`
+removed from `<html>`. Theme primitives: `src/app/poster.tsx` + component
+classes in `src/styles/app.css`. Landing shows live round/countdown/scores
+per war. Fonts via @fontsource (Alfa Slab One / Oswald / Special Elite).
+Verified: typecheck, prod build, 22 sim tests, 5 e2e (baselines regenerated
+for the poster theme). See ui.md for the full visual language.
+
 ## Status (2026-07-10, branch `rebuild/3d`) — full 3D rebuild, playable end-to-end
 
 User verdict on the 2D sketch version: "I hate how this looks, the scale the

@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import '@fontsource/alfa-slab-one';
+@import '@fontsource-variable/oswald';
+@import '@fontsource/special-elite';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -29,49 +32,52 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* Propaganda-poster chrome palette (see ui.md "App chrome"). The game board
+   canvas keeps its own palette in src/game/palette.ts — these tokens style
+   every non-canvas page. */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --radius: 0.25rem;
+  --background: #eee3c6;
+  --foreground: #28211a;
+  --card: #f5ecd4;
+  --card-foreground: #28211a;
+  --popover: #f5ecd4;
+  --popover-foreground: #28211a;
+  --primary: #28211a;
+  --primary-foreground: #f5ecd4;
+  --secondary: #e2d3ac;
+  --secondary-foreground: #28211a;
+  --muted: #e6d8b4;
+  --muted-foreground: #6d5d40;
+  --accent: #cf9c3c;
+  --accent-foreground: #28211a;
+  --destructive: #a03723;
+  --destructive-foreground: #f5ecd4;
+  --border: #c7b285;
+  --input: #c7b285;
+  --ring: #cf9c3c;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --background: #211b10;
+  --foreground: #f0e7cd;
+  --card: #2b2416;
+  --card-foreground: #f0e7cd;
+  --popover: #2b2416;
+  --popover-foreground: #f0e7cd;
+  --primary: #f0e7cd;
+  --primary-foreground: #211b10;
+  --secondary: #3a3120;
+  --secondary-foreground: #f0e7cd;
+  --muted: #3a3120;
+  --muted-foreground: #b3a37f;
+  --accent: #cf9c3c;
+  --accent-foreground: #211b10;
+  --destructive: #d0603f;
+  --destructive-foreground: #f0e7cd;
+  --border: #4a3f28;
+  --input: #4a3f28;
+  --ring: #cf9c3c;
 }
 
 @layer base {
@@ -80,6 +86,127 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: ui-sans-serif, system-ui, sans-serif;
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  }
+}
+
+@layer components {
+  /* --- poster buttons: hard offset shadow, condensed caps, ink borders --- */
+  .poster-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 46px;
+    padding: 0.6rem 1.35rem;
+    font-family: 'Oswald Variable', Oswald, 'Arial Narrow', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: #28211a;
+    background: #f5ecd4;
+    border: 3px solid #28211a;
+    border-radius: 3px;
+    box-shadow: 4px 4px 0 rgba(40, 33, 26, 0.9);
+    transition:
+      transform 0.12s ease,
+      box-shadow 0.12s ease;
+    cursor: pointer;
+    user-select: none;
+  }
+  .poster-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 6px 6px 0 rgba(40, 33, 26, 0.9);
+  }
+  .poster-btn:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 rgba(40, 33, 26, 0.9);
+  }
+  .poster-btn:disabled {
+    opacity: 0.55;
+    transform: none;
+    box-shadow: 4px 4px 0 rgba(40, 33, 26, 0.5);
+    cursor: not-allowed;
+  }
+  .poster-btn--gold {
+    background: #cf9c3c;
+  }
+  .poster-btn--ink {
+    background: #28211a;
+    color: #f0e7cd;
+  }
+
+  /* --- slow slogan ticker in the masthead --- */
+  .ticker {
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .ticker-track {
+    display: inline-flex;
+    width: max-content;
+    animation: ticker-scroll 42s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-track {
+      animation: none;
+    }
+  }
+  @keyframes ticker-scroll {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  /* --- faction poster tilts --- */
+  .poster-tilt-l,
+  .poster-tilt-r,
+  .poster-tilt-0 {
+    transition: transform 0.25s ease;
+  }
+  .poster-tilt-l {
+    transform: rotate(-1.6deg);
+  }
+  .poster-tilt-r {
+    transform: rotate(1.6deg);
+  }
+  .poster-tilt-l:hover,
+  .poster-tilt-r:hover,
+  .poster-tilt-0:hover {
+    transform: rotate(0deg) scale(1.02);
+  }
+
+  /* --- staggered page-load reveal --- */
+  .rise {
+    animation: rise-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rise {
+      animation: none;
+    }
+  }
+
+  .blink-dot {
+    animation: blink-dot 1.6s steps(2, start) infinite;
+  }
+  @keyframes blink-dot {
+    50% {
+      opacity: 0.25;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .blink-dot {
+      animation: none;
+    }
   }
 }

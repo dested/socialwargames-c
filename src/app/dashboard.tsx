@@ -6,6 +6,7 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import { PageShell } from './poster'
 import type { RootLoaderData } from './routes'
 
 export function DashboardPage() {
@@ -26,7 +27,7 @@ export function DashboardPage() {
   if (!session) return null
 
   return (
-    <div className="space-y-8">
+    <PageShell className="space-y-8">
       <section>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
@@ -98,6 +99,6 @@ export function DashboardPage() {
           ))}
         </div>
       </section>
-    </div>
+    </PageShell>
   )
 }

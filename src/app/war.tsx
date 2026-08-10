@@ -1,10 +1,12 @@
-// /war/:mode — the war room: faction scores, the attribution leaderboard, and
-// the war report (deaths and capital falls, round by round).
+// /war/:mode — the war room: faction scores, the attribution leaderboard
+// ("roll of honor"), and the war report (dispatches, round by round).
+// Propaganda-poster chrome per ui.md; primitives in ./poster.tsx.
 
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { useTRPC } from '~/lib/trpc'
-import { FACTIONS, FACTION_NAMES, UI } from '~/scene/palette'
+import { FACTION_BASE, FACTION_NAMES } from '~/scene/palette'
+import { CONDENSED, DISPLAY, Eyebrow, Grain, POSTER, PageShell, Panel, Stars, TYPEWRITER } from './poster'
 
 const STAT_COLUMNS = [
   ['kills', 'Kills'],
@@ -29,124 +31,142 @@ export function WarPage() {
   const state = stateQuery.data
 
   return (
-    <div className="space-y-8">
-      <section className="flex flex-wrap items-end justify-between gap-3 pt-2">
-        <div>
-          <div className="text-xs font-bold uppercase tracking-widest" style={{ color: UI.accent }}>
-            War room
+    <div className="relative" style={{ background: POSTER.paper }}>
+      <Grain opacity={0.1} />
+      <PageShell className="relative space-y-10">
+        <section className="flex flex-wrap items-end justify-between gap-4 pt-2">
+          <div>
+            <Eyebrow>War room</Eyebrow>
+            <h1 className="mt-1 text-4xl" style={{ fontFamily: DISPLAY, color: POSTER.ink }}>
+              {mode === 'blitz' ? 'Blitz War' : 'Campaign War'}
+              {state ? ` · round ${state.game.roundNumber}` : ''}
+            </h1>
           </div>
-          <h1 className="text-3xl font-bold" style={{ color: UI.ink }}>
-            {mode === 'blitz' ? 'Blitz War' : 'Campaign War'}
-            {state ? ` · round ${state.game.roundNumber}` : ''}
-          </h1>
-        </div>
-        <Link
-          to={`/play/${mode}`}
-          className="rounded-xl px-5 py-3 text-sm font-bold"
-          style={{ background: UI.accent, color: UI.accentInk, minHeight: 44 }}
-        >
-          To the front
-        </Link>
-      </section>
-
-      {state && (
-        <section className="flex flex-wrap gap-3">
-          {state.snapshot.scores.map((s, f) => (
-            <div
-              key={f}
-              className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold"
-              style={{
-                background: UI.bgRaise,
-                border: `1px solid ${UI.panelBorder}`,
-                color: UI.ink,
-                fontVariantNumeric: 'tabular-nums',
-              }}
-            >
-              <span
-                className="inline-block h-3 w-3 rounded-full"
-                style={{ background: FACTIONS[f].glow, boxShadow: `0 0 6px ${FACTIONS[f].glow}` }}
-              />
-              {FACTION_NAMES[f]} — {s}
-            </div>
-          ))}
+          <Link to={`/play/${mode}`} className="poster-btn poster-btn--gold">
+            To the front
+          </Link>
         </section>
-      )}
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-bold" style={{ color: UI.ink }}>
-          Leaderboard
-        </h2>
-        <div
-          className="overflow-x-auto rounded-2xl"
-          style={{ background: UI.bgRaise, border: `1px solid ${UI.panelBorder}` }}
-        >
-          <table className="w-full text-sm" style={{ color: UI.ink }}>
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wider" style={{ color: UI.inkSoft }}>
-                <th className="px-4 py-3">Player</th>
-                {STAT_COLUMNS.map(([k, label]) => (
-                  <th key={k} className="px-3 py-3 text-right">
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody style={{ fontVariantNumeric: 'tabular-nums' }}>
-              {(leaderboardQuery.data ?? []).map((p, i) => (
-                <tr key={p.playerId} style={{ borderTop: `1px solid ${UI.panelBorder}` }}>
-                  <td className="px-4 py-2 font-semibold">
-                    {i + 1}. {p.name}
-                  </td>
-                  {STAT_COLUMNS.map(([k]) => (
-                    <td key={k} className="px-3 py-2 text-right">
-                      {p.stats[k] ?? 0}
-                    </td>
+        {state && (
+          <section className="flex flex-wrap gap-3">
+            {state.snapshot.scores.map((s, f) => (
+              <div
+                key={f}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-bold"
+                style={{
+                  background: POSTER.panel,
+                  border: `3px solid ${POSTER.ink}`,
+                  borderRadius: 3,
+                  boxShadow: '3px 3px 0 rgba(40,33,26,0.85)',
+                  color: POSTER.ink,
+                  fontFamily: CONDENSED,
+                  letterSpacing: '0.08em',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                <span
+                  className="inline-block h-3 w-3"
+                  style={{ background: FACTION_BASE[f], border: `2px solid ${POSTER.ink}` }}
+                />
+                {FACTION_NAMES[f]} — {s}
+              </div>
+            ))}
+          </section>
+        )}
+
+        <section className="space-y-4">
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-2xl" style={{ fontFamily: DISPLAY, color: POSTER.ink }}>
+              Roll of honor
+            </h2>
+            <Stars className="text-xs" />
+          </div>
+          <Panel className="overflow-x-auto">
+            <table className="w-full text-sm" style={{ color: POSTER.ink }}>
+              <thead>
+                <tr
+                  className="text-left text-xs uppercase"
+                  style={{
+                    fontFamily: CONDENSED,
+                    letterSpacing: '0.15em',
+                    color: POSTER.paper,
+                    background: POSTER.ink,
+                  }}
+                >
+                  <th className="px-4 py-3 font-semibold">Player</th>
+                  {STAT_COLUMNS.map(([k, label]) => (
+                    <th key={k} className="px-3 py-3 text-right font-semibold">
+                      {label}
+                    </th>
                   ))}
                 </tr>
-              ))}
-              {leaderboardQuery.data?.length === 0 && (
-                <tr>
-                  <td className="px-4 py-4 text-sm" colSpan={7} style={{ color: UI.inkSoft }}>
-                    No deeds recorded yet. Be the first on the ledger.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody style={{ fontVariantNumeric: 'tabular-nums', fontFamily: TYPEWRITER }}>
+                {(leaderboardQuery.data ?? []).map((p, i) => (
+                  <tr key={p.playerId} style={{ borderTop: `1px solid ${POSTER.line}` }}>
+                    <td className="px-4 py-2 font-semibold">
+                      {i + 1}. {p.name}
+                    </td>
+                    {STAT_COLUMNS.map(([k]) => (
+                      <td key={k} className="px-3 py-2 text-right">
+                        {p.stats[k] ?? 0}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+                {leaderboardQuery.data?.length === 0 && (
+                  <tr>
+                    <td className="px-4 py-4 text-sm" colSpan={7} style={{ color: POSTER.inkSoft }}>
+                      No deeds recorded yet. Be the first on the ledger.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </Panel>
+        </section>
 
-      <section className="space-y-3 pb-8">
-        <h2 className="text-xl font-bold" style={{ color: UI.ink }}>
-          War report
-        </h2>
-        <div className="space-y-2">
-          {(reportQuery.data ?? []).map((r) => (
-            <div
-              key={r.round}
-              className="rounded-xl px-4 py-3 text-sm"
-              style={{ background: UI.bgRaise, border: `1px solid ${UI.panelBorder}` }}
-            >
-              <span className="font-bold" style={{ color: UI.ink, fontVariantNumeric: 'tabular-nums' }}>
-                Round {r.round}
-              </span>{' '}
-              <span style={{ color: UI.inkSoft }}>
-                {r.deaths
-                  .map(
-                    (d) =>
-                      `${FACTION_NAMES[d.faction].split(' ')[0]} lost a ${d.unitType}${d.unitType === 'capital' ? ' — THE CAPITAL FELL' : ''}`,
-                  )
-                  .join(' · ')}
-              </span>
-            </div>
-          ))}
-          {reportQuery.data?.length === 0 && (
-            <p className="text-sm" style={{ color: UI.inkSoft }}>
-              No blood spilled yet. The quiet before the war.
-            </p>
-          )}
-        </div>
-      </section>
+        <section className="space-y-4 pb-8">
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-2xl" style={{ fontFamily: DISPLAY, color: POSTER.ink }}>
+              Dispatches
+            </h2>
+            <Stars className="text-xs" />
+          </div>
+          <div className="space-y-3">
+            {(reportQuery.data ?? []).map((r) => (
+              <div
+                key={r.round}
+                className="px-4 py-3 text-sm"
+                style={{
+                  background: POSTER.panel,
+                  border: `2px solid ${POSTER.ink}`,
+                  borderRadius: 3,
+                  boxShadow: '3px 3px 0 rgba(40,33,26,0.6)',
+                  fontFamily: TYPEWRITER,
+                }}
+              >
+                <span style={{ color: POSTER.stamp, fontVariantNumeric: 'tabular-nums' }}>
+                  ROUND {r.round} —
+                </span>{' '}
+                <span style={{ color: POSTER.ink }}>
+                  {r.deaths
+                    .map(
+                      (d) =>
+                        `${FACTION_NAMES[d.faction].split(' ')[0]} lost a ${d.unitType}${d.unitType === 'capital' ? ' — THE CAPITAL FELL' : ''}`,
+                    )
+                    .join(' · ')}
+                </span>
+              </div>
+            ))}
+            {reportQuery.data?.length === 0 && (
+              <p className="text-sm" style={{ fontFamily: TYPEWRITER, color: POSTER.inkSoft }}>
+                No blood spilled yet. The quiet before the war.
+              </p>
+            )}
+          </div>
+        </section>
+      </PageShell>
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card'
+import { PageShell } from './poster'
 
 export function SignUpPage() {
   const navigate = useNavigate()
@@ -30,7 +31,7 @@ export function SignUpPage() {
   }
 
   return (
-    <div className="mx-auto max-w-sm">
+    <PageShell className="max-w-sm">
       <Card>
         <CardHeader>
           <CardTitle>Create account</CardTitle>
@@ -84,6 +85,6 @@ export function SignUpPage() {
           </form>
         </CardContent>
       </Card>
-    </div>
+    </PageShell>
   )
 }
