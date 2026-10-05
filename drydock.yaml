@@ -6,12 +6,13 @@ name: socialwargames
 kind: ssr          # ssr | static
 runtime: bun        # bun | node
 port: 3000
-memory: 256        # MiB soft reservation
+size: m          # xs | s | m | l — memory reservation
 build: bun run build
 start: bun run start
 database: true      # provision Postgres + DATABASE_URL
 prisma: true        # prisma generate on build, db push predeploy
 predeploy: bunx prisma db push --accept-data-loss
+mail: true        # receive mail via dested-email (MX → mx.dested.com, DESTED_EMAIL_* env)
 domains:
   - socialwargames.com
 dnsZone: socialwargames.com
